@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.input { @apply w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-400; }
+.btn { @apply px-4 py-2 rounded border; }
+.btn-primary { @apply bg-emerald-600 text-white hover:bg-emerald-700; }
+.card { @apply bg-white rounded shadow p-4; }
+.page-title { @apply text-2xl font-bold; }
+.page-subtitle { @apply text-gray-600; }
+.table { @apply w-full border-collapse; }
+.table th { @apply text-left border-b p-2 text-gray-700; }
+.table td { @apply border-b p-2; }
+.kpi { @apply card flex items-center justify-between; }
