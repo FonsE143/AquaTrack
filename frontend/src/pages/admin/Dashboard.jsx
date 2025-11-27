@@ -59,7 +59,7 @@ export default function AdminDashboard() {
           const orderDate = new Date(o.created_at)
           const today = new Date()
           return orderDate.toDateString() === today.toDateString() && 
-                 o.status && ['out', 'delivered'].includes(o.status)
+                 o.status && ['out'].includes(o.status)
           } catch {
           return false
         }
@@ -151,7 +151,7 @@ export default function AdminDashboard() {
     {
       title: 'Deliveries Today',
       value: deliveriesToday,
-      detail: 'Out for delivery',
+      detail: 'Currently out for delivery',
       accent: 'info',
       icon: <Truck size={20} />,
     },
@@ -160,15 +160,6 @@ export default function AdminDashboard() {
   // Handle loading states
   const isLoading = reportsLoading || ordersLoading || customersLoading
   const hasError = reportsError || ordersError || customersError
-
-  // Add this new query for recent orders
-  const { data: recentOrders, isLoading: recentOrdersLoading } = useQuery({
-    queryKey: ['recent-orders'],
-    queryFn: async () => {
-      const response = await api.get('/orders/?limit=5');
-      return response.data.results || response.data || [];
-    },
-  });
 
   return (
     <AppShell role="admin" sidebar={<Sidebar items={items} />}>
@@ -296,12 +287,12 @@ export default function AdminDashboard() {
 
           {/* Alerts and Top Customers */}
           <div className="col-lg-4">
-            {/* Low Stock Alerts */}
+            {/* To be Returned Containers */}
             <div className="card border-0 shadow-sm mb-4">
               <div className="card-header bg-white border-0 py-3">
                 <div className="d-flex align-items-center gap-2">
                   <AlertTriangle className="text-warning" size={20} />
-                  <h5 className="mb-0">Low Stock Alerts</h5>
+                  <h5 className="mb-0">To be Returned Containers</h5>
                 </div>
               </div>
               <div className="card-body">
@@ -311,22 +302,25 @@ export default function AdminDashboard() {
                       <span className="visually-hidden">Loading...</span>
                     </div>
                   </div>
-                ) : Array.isArray(reports?.low_stock) && reports.low_stock.length > 0 ? (
+                ) : Array.isArray(reports?.to_be_returned) && reports.to_be_returned.length > 0 ? (
                   <div className="list-group list-group-flush">
-                    {reports.low_stock.map((p, index) => (
+                    {reports.to_be_returned.map((p, index) => (
                       <div key={p.name || index} className="list-group-item border-0 px-0 py-2">
                         <div className="d-flex justify-content-between align-items-center">
                           <span className="fw-medium">{p.name || 'Unknown Product'}</span>
                           <span className="badge bg-warning-subtle text-warning-emphasis">
-                            {Number(p.stock_full ?? 0)} / {Number(p.threshold ?? 0)}
+                            {Number(p.outstanding ?? 0)} containers
                           </span>
+                        </div>
+                        <div className="small text-muted mt-1">
+                          Delivered: {Number(p.delivered ?? 0)} | Returned: {Number(p.returned ?? 0)}
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="text-center py-3 text-muted">
-                    <p className="mb-0">All stock levels look healthy</p>
+                    <p className="mb-0">All containers have been returned</p>
                   </div>
                 )}
               </div>
@@ -352,7 +346,11 @@ export default function AdminDashboard() {
                     {reports.top_customers.slice(0, 5).map((c, index) => (
                       <div key={c.customer__user__username || index} className="list-group-item border-0 px-0 py-2">
                         <div className="d-flex justify-content-between align-items-center">
-                          <span className="fw-medium">{c.customer__user__username || 'Unknown Customer'}</span>
+                          <span className="fw-medium">
+                            {c.customer__first_name && c.customer__last_name 
+                              ? `${c.customer__first_name} ${c.customer__last_name}`
+                              : c.customer__user__username || 'Unknown Customer'}
+                          </span>
                           <span className="text-success fw-semibold">
                             {formatCurrency(parseFloat(c.spend || 0) || 0)}
                           </span>
@@ -369,8 +367,6 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
-
-
       </div>
     </AppShell>
   )

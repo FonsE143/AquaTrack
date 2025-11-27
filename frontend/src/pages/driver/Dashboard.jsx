@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import AppShell from '../../components/AppShell'
 import { Sidebar } from '../../components/Sidebar'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 
 export default function DriverDashboard(){
@@ -13,12 +13,26 @@ export default function DriverDashboard(){
   
   const [activityPage, setActivityPage] = useState(1)
   const activityPageSize = 5
+  const queryClient = useQueryClient()
 
+  // Get current user's profile to get driver ID
+  const { data: currentUser } = useQuery({
+    queryKey: ['me'],
+    queryFn: async () => {
+      console.log('Fetching current user...');
+      const response = await api.get('/me/');
+      console.log('Current user response:', response);
+      return response.data;
+    }
+  })
+  
   // Get driver's deliveries to calculate statistics
   const { data: deliveries } = useQuery({
     queryKey: ['deliveries'],
     queryFn: async () => {
+      console.log('Fetching deliveries...');
       const response = await api.get('/deliveries/')
+      console.log('Deliveries response:', response);
       // Handle both paginated and non-paginated responses
       let deliveriesData;
       if (response.data.results) {
@@ -27,10 +41,85 @@ export default function DriverDashboard(){
         deliveriesData = Array.isArray(response.data) ? response.data : []
       }
       
-      // Filter out processing, delivered and cancelled orders as a safety measure
-      return deliveriesData.filter(d => 
-        d.order && d.order.status === 'out'
-      )
+      // Log deliveries data for debugging
+      console.log('Raw deliveries data:', response.data);
+      console.log('Processed deliveries data:', deliveriesData);
+      
+      // Filter to show only deliveries assigned to this driver
+      // Include deliveries where order status might be 'delivered' but delivery status is not 'completed'
+      return deliveriesData;
+    }
+  })
+
+  // Get driver's delivered orders count directly from the orders endpoint
+  const { data: deliveredOrdersData } = useQuery({
+    queryKey: ['driver-delivered-orders'],
+    queryFn: async () => {
+      const response = await api.get('/orders/')
+      // Handle both paginated and non-paginated responses
+      let ordersData;
+      if (response.data.results) {
+        ordersData = Array.isArray(response.data.results) ? response.data.results : []
+      } else {
+        ordersData = Array.isArray(response.data) ? response.data : []
+      }
+      
+      // Log orders data for debugging
+      console.log('Orders data:', ordersData);
+      console.log('Current user:', currentUser);
+      
+      // Filter to show only delivered orders that have a delivery assigned to this driver
+      const currentDriverId = currentUser?.id;
+      
+      return ordersData.filter(order => {
+        // Log each order for debugging
+        console.log('Order:', order);
+        const isDelivered = order.status === 'delivered';
+        // Check if the order has a delivery and if that delivery is assigned to this driver
+        // Handle both nested object and flat structure for delivery data
+        const deliveryDriverId = order.driver?.id || order.driver_id;
+        const isAssignedToDriver = deliveryDriverId && deliveryDriverId === currentDriverId;
+      
+        console.log(`Order ${order.id}: status=${order.status}, isDelivered=${isDelivered}, deliveryDriverId=${deliveryDriverId}, isAssignedToDriver=${isAssignedToDriver}`);
+      
+        return isDelivered && isAssignedToDriver;
+      });
+    },
+    enabled: !!currentUser // Only run this query when currentUser is available
+  })
+
+  const markDelivered = useMutation({
+    mutationFn: async ({ orderId, returnedContainers }) => {
+      // First update the returned container counts using our new endpoint
+      if (returnedContainers) {
+        // Prepare the item updates
+        const itemUpdates = Object.entries(returnedContainers)
+          .map(([itemId, qty]) => ({
+            id: parseInt(itemId),
+            qty_empty_in: qty
+          }));
+        
+        // Only update if we have items to update
+        if (itemUpdates.length > 0) {
+          await api.patch(`/orders/${orderId}/update_item/`, {
+            items: itemUpdates
+          });
+        }
+      }
+      
+      // Use the order process endpoint to mark delivered; server will create ActivityLog
+      return api.post(`/orders/${orderId}/process/`, { status: 'delivered' })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['deliveries'])
+      queryClient.invalidateQueries(['orders'])
+      queryClient.invalidateQueries(['driver-delivered-orders'])
+      // Invalidate all activity log pages
+      queryClient.invalidateQueries(['activity'])
+    },
+    onError: (err) => {
+      console.error('Failed to mark delivered', err)
+      alert('Failed to update delivery status')
     }
   })
   
@@ -47,25 +136,28 @@ export default function DriverDashboard(){
         activityData = Array.isArray(response.data) ? response.data : []
       }
       
-      // Filter out activities that are not relevant to order status updates for delivered orders
-      return activityData.filter(log => {
-        if (log.action === 'update_order_status' && log.meta) {
-          // Show all status updates except those that are just confirming already delivered orders
-          return !(log.meta.to === 'delivered' && log.meta.from === 'delivered')
-        }
-        return true
-      })
+      // Log activity data for debugging
+      console.log('Activity logs:', activityData);
+      
+      // For drivers, we'll show all activities since the backend already filters for driver-specific activities
+      return activityData;
     }
   })
 
   // Calculate statistics
-  const ordersInRoute = deliveries ? deliveries.filter(d => 
-    d.status === 'enroute' && d.order && d.order.status === 'out'
-  ).length : 0
-  
-  const deliveredOrders = deliveries ? deliveries.filter(d => 
-    d.status === 'completed' && d.order && d.order.status === 'delivered'
-  ).length : 0
+  const ordersInRoute = deliveries ? deliveries.filter(d => {
+    // Check if the delivery is assigned to the current driver and is enroute
+    // Handle both nested object and flat structure
+    const deliveryStatus = d.status;
+    const orderStatus = d.order_status || 'unknown';
+    // Show orders that are in route (assigned or enroute) and not yet delivered
+    const isInRoute = (deliveryStatus === 'assigned' || deliveryStatus === 'enroute') && 
+                     (orderStatus === 'processing' || orderStatus === 'out');
+    console.log(`Delivery ${d.id}: status=${deliveryStatus}, orderStatus=${orderStatus}, isInRoute=${isInRoute}`);
+    return isInRoute;
+  }).length : 0
+
+  const deliveredOrders = deliveredOrdersData ? deliveredOrdersData.length : 0
 
   // Paginate activity logs
   const paginatedActivityLogs = activityLogs ? activityLogs.slice(
@@ -80,7 +172,6 @@ export default function DriverDashboard(){
       <div className="container py-4">
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h2>Driver Dashboard</h2>
-          <Link to="/driver/deliveries" className="btn btn-outline-primary">View Deliveries</Link>
         </div>
 
         {/* Statistics Cards */}

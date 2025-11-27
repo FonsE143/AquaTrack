@@ -84,7 +84,13 @@ export default function CustomerDashboard(){
     setIsModalOpen(true)
   }
   
-  const meOrders = (orders?.results || orders || []).slice(0,10)
+  const meOrders = (orders?.results || orders || [])
+    .filter(order => {
+      const orderDate = new Date(order.created_at);
+      const today = new Date();
+      return orderDate.toDateString() === today.toDateString();
+    })
+    .slice(0, 10);
   
   return (
     <AppShell role="customer" sidebar={<Sidebar items={items} />}>
@@ -92,7 +98,7 @@ export default function CustomerDashboard(){
         {/* Header */}
         <div className="d-flex align-items-center justify-content-between mb-4">
           <div>
-            <h1 className="h3 mb-1">Welcome back, {me?.username || 'Customer'}!</h1>
+            <h1 className="h3 mb-1">Welcome back, {`${me?.first_name || ''} ${me?.last_name || ''}`.trim() || me?.username || 'Customer'}!</h1>
             <p className="text-muted mb-0">Here you can manage your orders and view your history</p>
           </div>
           <button 
@@ -124,8 +130,124 @@ export default function CustomerDashboard(){
           </div>
         )}
         
-        {/* Order History */}
-        <div className="card border-0 shadow-sm">
+        {/* Place Order Modal */}
+        {isModalOpen && (
+          <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <div className="modal-content border-0 shadow">
+                <div className="modal-header border-0 pb-0">
+                  <h5 className="modal-title">Place a New Order</h5>
+                  <button 
+                    type="button" 
+                    className="btn-close" 
+                    onClick={() => setIsModalOpen(false)}
+                  ></button>
+                </div>
+                <div className="modal-body">
+                  <form onSubmit={submitOrder}>
+                    <div className="row g-3">
+                      <div className="col-md-6">
+                        <label className="form-label fw-medium">Product *</label>
+                        <div className="input-group">
+                          <span className="input-group-text">
+                            <Package size={18} />
+                          </span>
+                          <select 
+                            className="form-select"
+                            name="product"
+                            value={form.product} 
+                            onChange={handleFormChange}
+                            required
+                          >
+                            <option value="">Select a product</option>
+                            {(products?.results || products || [])
+                              .filter(p => p.active)
+                              .map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} — ₱{parseFloat(p.price).toFixed(2)}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label fw-medium">Quantity *</label>
+                        <div className="input-group">
+                          <span className="input-group-text">
+                            <span>#</span>
+                          </span>
+                          <input 
+                            className="form-control"
+                            type="number" 
+                            min="1" 
+                            name="qty"
+                            value={form.qty} 
+                            onChange={handleFormChange}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="col-12">
+                        <label className="form-label fw-medium">Delivery Address</label>
+                        <textarea 
+                          className="form-control"
+                          name="address"
+                          value={form.address} 
+                          onChange={handleFormChange}
+                          placeholder="Enter delivery address"
+                          rows="2"
+                        />
+                      </div>
+                      <div className="col-12">
+                        <label className="form-label fw-medium">Delivery Notes</label>
+                        <div className="input-group">
+                          <span className="input-group-text">
+                            <StickyNote size={18} />
+                          </span>
+                          <input
+                            className="form-control"
+                            type="text"
+                            name="notes"
+                            placeholder="e.g., Leave at the front door"
+                            value={form.notes} 
+                            onChange={handleFormChange}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+                <div className="modal-footer border-0 pt-0">
+                  <button
+                    type="button"
+                    className="btn btn-light"
+                    onClick={() => setIsModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="btn btn-success"
+                    type="submit" 
+                    disabled={orderMutation.isLoading || !form.product}
+                    onClick={submitOrder}
+                  >
+                    {orderMutation.isLoading ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Submitting...
+                      </>
+                    ) : (
+                      'Submit Order'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Order History - Moved to Bottom */}
+        <div className="card border-0 shadow-sm mt-4">
           <div className="card-header bg-white border-0 py-3">
             <h5 className="mb-0">Your Recent Orders</h5>
           </div>
@@ -172,7 +294,7 @@ export default function CustomerDashboard(){
                             </span>
                           </td>
                           <td className="fw-medium">₱{parseFloat(o.total_amount || 0).toFixed(2)}</td>
-                          <td>{o.items?.length || 0} item(s)</td>
+                          <td>{o.items ? o.items.reduce((total, item) => total + (item.qty_full_out || 0) + (item.qty_empty_in || 0), 0) : 0} item(s)</td>
                         </tr>
                       ))}
                     </tbody>
@@ -206,7 +328,7 @@ export default function CustomerDashboard(){
                         
                         <div className="mb-0">
                           <small className="text-muted">Items:</small>
-                          <div>{o.items?.length || 0} item(s)</div>
+                          <div>{o.items ? o.items.reduce((total, item) => total + (item.qty_full_out || 0) + (item.qty_empty_in || 0), 0) : 0} item(s)</div>
                         </div>
                       </div>
                     ))}
@@ -217,122 +339,6 @@ export default function CustomerDashboard(){
           </div>
         </div>
       </div>
-
-      {/* Place Order Modal */}
-      {isModalOpen && (
-        <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content border-0 shadow">
-              <div className="modal-header border-0 pb-0">
-                <h5 className="modal-title">Place a New Order</h5>
-                <button 
-                  type="button" 
-                  className="btn-close" 
-                  onClick={() => setIsModalOpen(false)}
-                ></button>
-              </div>
-              <div className="modal-body">
-                <form onSubmit={submitOrder}>
-                  <div className="row g-3">
-                    <div className="col-md-6">
-                      <label className="form-label fw-medium">Product *</label>
-                      <div className="input-group">
-                        <span className="input-group-text">
-                          <Package size={18} />
-                        </span>
-                        <select 
-                          className="form-select"
-                          name="product"
-                          value={form.product} 
-                          onChange={handleFormChange}
-                          required
-                        >
-                          <option value="">Select a product</option>
-                          {(products?.results || products || [])
-                            .filter(p => p.active && p.stock_full > 0)
-                            .map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} — ₱{parseFloat(p.price).toFixed(2)} (Stock: {p.stock_full})
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label fw-medium">Quantity *</label>
-                      <div className="input-group">
-                        <span className="input-group-text">
-                          <span>#</span>
-                        </span>
-                        <input 
-                          className="form-control"
-                          type="number" 
-                          min="1" 
-                          name="qty"
-                          value={form.qty} 
-                          onChange={handleFormChange}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="col-12">
-                      <label className="form-label fw-medium">Delivery Address</label>
-                      <textarea 
-                        className="form-control"
-                        name="address"
-                        value={form.address} 
-                        onChange={handleFormChange}
-                        placeholder="Enter delivery address"
-                        rows="2"
-                      />
-                    </div>
-                    <div className="col-12">
-                      <label className="form-label fw-medium">Delivery Notes</label>
-                      <div className="input-group">
-                        <span className="input-group-text">
-                          <StickyNote size={18} />
-                        </span>
-                        <input
-                          className="form-control"
-                          type="text"
-                          name="notes"
-                          placeholder="e.g., Leave at the front door"
-                          value={form.notes} 
-                          onChange={handleFormChange}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </form>
-              </div>
-              <div className="modal-footer border-0 pt-0">
-                <button
-                  type="button"
-                  className="btn btn-light"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  className="btn btn-success"
-                  type="submit" 
-                  disabled={orderMutation.isLoading || !form.product}
-                  onClick={submitOrder}
-                >
-                  {orderMutation.isLoading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      Submitting...
-                    </>
-                  ) : (
-                    'Submit Order'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </AppShell>
   )
 }

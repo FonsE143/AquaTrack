@@ -112,13 +112,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True)
     customer_username = serializers.CharField(source='customer.user.username', read_only=True)
+    customer_first_name = serializers.CharField(source='customer.first_name', read_only=True, allow_null=True)
+    customer_last_name = serializers.CharField(source='customer.last_name', read_only=True, allow_null=True)
     driver = serializers.SerializerMethodField()
     delivery_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
-            'id','customer','customer_username','created_at','status',
+            'id','customer','customer_username','customer_first_name','customer_last_name','created_at','status',
             'total_amount','notes','items','driver','delivery_status'
         ]
         read_only_fields = ['created_at', 'total_amount']
@@ -179,20 +181,38 @@ class OrderSerializer(serializers.ModelSerializer):
 
 class DeliverySerializer(serializers.ModelSerializer):
     order_id = serializers.IntegerField(source='order.id', read_only=True)
+    order_status = serializers.CharField(source='order.status', read_only=True)
     driver_username = serializers.CharField(source='driver.user.username', read_only=True, allow_null=True)
     # Add customer details to the delivery serializer
     customer_first_name = serializers.CharField(source='order.customer.first_name', read_only=True, allow_null=True)
     customer_last_name = serializers.CharField(source='order.customer.last_name', read_only=True, allow_null=True)
     customer_address = serializers.CharField(source='order.customer.address', read_only=True, allow_null=True)
     customer_phone = serializers.CharField(source='order.customer.phone', read_only=True, allow_null=True)
+    # Add order details
+    order_total_amount = serializers.DecimalField(source='order.total_amount', max_digits=10, decimal_places=2, read_only=True)
+    order_items = serializers.SerializerMethodField()
     
     class Meta:
         model = Delivery
         fields = [
-            'id','order','order_id','driver','driver_username','status','route_index','eta_minutes',
-            'customer_first_name', 'customer_last_name', 'customer_address', 'customer_phone'
+            'id','order','order_id','order_status','driver','driver_username','status','route_index','eta_minutes',
+            'customer_first_name', 'customer_last_name', 'customer_address', 'customer_phone',
+            'order_total_amount', 'order_items'
         ]
         read_only_fields = ['route_index']
+    
+    def get_order_items(self, obj):
+        from core.models import OrderItem
+        items = OrderItem.objects.filter(order=obj.order)
+        return [
+            {
+                'id': item.id,
+                'product_name': item.product.name,
+                'qty_full_out': item.qty_full_out,
+                'qty_empty_in': item.qty_empty_in
+            }
+            for item in items
+        ]
     
     def validate_eta_minutes(self, value):
         if value < 0:
@@ -227,8 +247,10 @@ class OrderHistorySerializer(serializers.ModelSerializer):
 
 class ActivityLogSerializer(serializers.ModelSerializer):
     actor_username = serializers.CharField(source='actor.user.username', read_only=True)
+    actor_first_name = serializers.CharField(source='actor.first_name', read_only=True, allow_blank=True, allow_null=True)
+    actor_last_name = serializers.CharField(source='actor.last_name', read_only=True, allow_blank=True, allow_null=True)
 
     class Meta:
         model = ActivityLog
-        fields = ['id', 'actor', 'actor_username', 'action', 'entity', 'meta', 'timestamp']
+        fields = ['id', 'actor', 'actor_username', 'actor_first_name', 'actor_last_name', 'action', 'entity', 'meta', 'timestamp']
         read_only_fields = ['timestamp']

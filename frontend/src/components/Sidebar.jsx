@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { LayoutDashboard, Package, Truck, Users, Clock } from 'lucide-react'
 
 const iconMap = {
@@ -39,13 +39,8 @@ export function Sidebar({ items, onNavigate, role }) {
     }
   }
 
-  // Ensure all items are properly rendered
-  useEffect(() => {
-    // This effect ensures the component re-renders when location changes
-  }, [location])
-
   return (
-    <div className="nav flex-column gap-2">
+    <div className="nav flex-column gap-2 h-100">
       {items.map(i => {
         // If the item is marked admin-only and current role is not admin, skip it
         if (i.adminOnly && role !== 'admin') return null

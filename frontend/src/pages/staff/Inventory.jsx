@@ -13,15 +13,62 @@ export default function StaffInventory(){
     { label:'Order History', href:'/staff/order-history' },
     { label:'Inventory', href:'/staff/inventory', active:true },
   ]
-  const { data, isLoading, error } = useQuery({ 
+  
+  const { data: products, isLoading, error } = useQuery({ 
     queryKey:['products'], 
     queryFn: async()=> (await api.get('/products/')).data 
+  })
+  
+  // We need to calculate stock values based on orders
+  // Let's fetch orders to calculate the stock values
+  const { data: orders } = useQuery({ 
+    queryKey: ['orders-for-inventory'], 
+    queryFn: async () => (await api.get('/orders/')).data 
   })
   
   const [currentPage, setCurrentPage] = useState(1)
   const productsPerPage = 10
   
-  const productList = data?.results || data || []
+  const productList = products?.results || products || []
+  
+  // Calculate stock values based on orders
+  const calculateStockValues = (product) => {
+    if (!orders) return { delivered: 0, returned: 0, toBeReturned: 0 }
+    
+    // Get all order items for this product
+    const orderItems = []
+    const ordersArray = Array.isArray(orders) ? orders : 
+                       (orders.results ? orders.results : [])
+    
+    ordersArray.forEach(order => {
+      if (order.items) {
+        order.items.forEach(item => {
+          if (item.product === product.id || item.product_id === product.id) {
+            orderItems.push({
+              ...item,
+              order_status: order.status
+            })
+          }
+        })
+      }
+    })
+    
+    // Calculate totals
+    let delivered = 0
+    let returned = 0
+    
+    orderItems.forEach(item => {
+      // Only count delivered orders
+      if (item.order_status === 'delivered') {
+        delivered += item.qty_full_out || 0
+        returned += item.qty_empty_in || 0
+      }
+    })
+    
+    const toBeReturned = delivered - returned
+    
+    return { delivered, returned, toBeReturned }
+  }
   
   // Calculate pagination
   const totalProducts = productList.length
@@ -96,17 +143,17 @@ export default function StaffInventory(){
                         <th>Product</th>
                         <th>SKU</th>
                         <th>Price</th>
-                        <th>Full</th>
-                        <th>Empty</th>
-                        <th>Threshold</th>
+                        <th>Delivered Stock</th>
+                        <th>Returned Container</th>
+                        <th>To be Returned Container</th>
                         <th>Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {productsWithPadding.map(p => (
-                        <tr key={p.id} className={p.isEmpty ? '' : (p.stock_full < p.threshold ? 'table-warning' : '')}>
-                          {p.isEmpty ? (
-                            <>
+                      {productsWithPadding.map(p => {
+                        if (p.isEmpty) {
+                          return (
+                            <tr key={p.id}>
                               <td>&nbsp;</td>
                               <td>&nbsp;</td>
                               <td>&nbsp;</td>
@@ -114,29 +161,37 @@ export default function StaffInventory(){
                               <td>&nbsp;</td>
                               <td>&nbsp;</td>
                               <td>&nbsp;</td>
-                            </>
-                          ) : (
-                            <>
-                              <td className="fw-medium">{p.name}</td>
-                              <td>{p.sku}</td>
-                              <td>₱{parseFloat(p.price).toFixed(2)}</td>
-                              <td className={p.stock_full < p.threshold ? 'text-danger fw-bold' : ''}>
-                                {p.stock_full}
-                                {p.stock_full < p.threshold && (
-                                  <AlertTriangle size={14} className="ms-1 text-warning" />
-                                )}
-                              </td>
-                              <td>{p.stock_empty}</td>
-                              <td>{p.threshold}</td>
-                              <td>
-                                <span className={`badge ${p.active ? 'bg-success' : 'bg-secondary'}`}>
-                                  {p.active ? 'Active' : 'Inactive'}
-                                </span>
-                              </td>
-                            </>
-                          )}
-                        </tr>
-                      ))}
+                            </tr>
+                          );
+                        }
+                        
+                        const stockValues = calculateStockValues(p);
+                        return (
+                          <tr 
+                            key={p.id} 
+                            className={stockValues.toBeReturned > 0 ? 'table-warning' : ''}
+                          >
+                            <td className="fw-medium">{p.name}</td>
+                            <td>{p.sku}</td>
+                            <td>₱{parseFloat(p.price).toFixed(2)}</td>
+                            <td className={stockValues.toBeReturned > 0 ? 'text-danger fw-bold' : ''}>
+                              {stockValues.delivered}
+                              {stockValues.toBeReturned > 0 && (
+                                <AlertTriangle size={14} className="ms-1 text-warning" />
+                              )}
+                            </td>
+                            <td>{stockValues.returned}</td>
+                            <td className={stockValues.toBeReturned > 0 ? 'text-danger fw-bold' : ''}>
+                              {stockValues.toBeReturned}
+                            </td>
+                            <td>
+                              <span className={`badge ${p.active ? 'bg-success' : 'bg-secondary'}`}>
+                                {p.active ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -170,39 +225,46 @@ export default function StaffInventory(){
                 <div className="d-md-none">
                   <div className="list-group list-group-flush">
                     {productList.length > 0 ? (
-                      productList.map(p => (
-                        <div key={p.id} className={`list-group-item ${p.stock_full < p.threshold ? 'bg-warning bg-opacity-25' : ''}`}>
-                          <div className="d-flex justify-content-between align-items-start mb-2">
-                            <div>
-                              <h6 className="mb-1">{p.name}</h6>
-                              <small className="text-muted">SKU: {p.sku}</small>
+                      productList.map(p => {
+                        const stockValues = calculateStockValues(p);
+                        return (
+                          <div key={p.id} className={`list-group-item ${stockValues.toBeReturned > 0 ? 'bg-warning bg-opacity-25' : ''}`}>
+                            <div className="d-flex justify-content-between align-items-start mb-2">
+                              <div>
+                                <h6 className="mb-1">{p.name}</h6>
+                                <small className="text-muted">SKU: {p.sku}</small>
+                              </div>
+                              <span className={`badge ${p.active ? 'bg-success' : 'bg-secondary'}`}>
+                                {p.active ? 'Active' : 'Inactive'}
+                              </span>
                             </div>
-                            <span className={`badge ${p.active ? 'bg-success' : 'bg-secondary'}`}>
-                              {p.active ? 'Active' : 'Inactive'}
-                            </span>
-                          </div>
-                          
-                          <div className="mb-2">
-                            <small className="text-muted">Price:</small>
-                            <div>₱{parseFloat(p.price).toFixed(2)}</div>
-                          </div>
-                          
-                          <div className="mb-2">
-                            <small className="text-muted">Stock:</small>
-                            <div className={p.stock_full < p.threshold ? 'text-danger fw-bold' : ''}>
-                              Full: {p.stock_full} | Empty: {p.stock_empty}
-                              {p.stock_full < p.threshold && (
-                                <AlertTriangle size={14} className="ms-1 text-warning" />
-                              )}
+                            
+                            <div className="mb-2">
+                              <small className="text-muted">Price:</small>
+                              <div>₱{parseFloat(p.price).toFixed(2)}</div>
+                            </div>
+                            
+                            <div className="mb-2">
+                              <small className="text-muted">Stock:</small>
+                              <div className={stockValues.toBeReturned > 0 ? 'text-danger fw-bold' : ''}>
+                                Delivered: {stockValues.delivered} | Returned: {stockValues.returned} | To be Returned: {stockValues.toBeReturned}
+                                {stockValues.toBeReturned > 0 && (
+                                  <AlertTriangle size={14} className="ms-1 text-warning" />
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="mb-0">
+                              <small className="text-muted">Status:</small>
+                              <div>
+                                <span className={`badge ${p.active ? 'bg-success' : 'bg-secondary'}`}>
+                                  {p.active ? 'Active' : 'Inactive'}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                          
-                          <div className="mb-0">
-                            <small className="text-muted">Threshold:</small>
-                            <div>{p.threshold}</div>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <div className="list-group-item text-center py-5">
                         <Package size={48} className="text-muted mb-3" />

@@ -33,15 +33,11 @@ export default function OrderHistoryPage(){
       try {
         let ordersResponse;
         
-        // For customer role, only show delivered orders that belong to them
+        // For customer role, show all their orders (delivered and cancelled)
         if (userRole === 'customer') {
-          ordersResponse = await api.get('/orders/?status=delivered')
-          let deliveredOrders = ordersResponse.data.results || ordersResponse.data || []
-          // Filter to show only their own delivered orders
-          deliveredOrders = deliveredOrders.filter(order => 
-            order.customer_username === localStorage.getItem('username')
-          )
-          return deliveredOrders
+          ordersResponse = await api.get('/orders/')
+          let customerOrders = ordersResponse.data.results || ordersResponse.data || []
+          return customerOrders
         } 
         // For staff and admin, show all orders including cancelled ones
         else {
@@ -177,7 +173,7 @@ export default function OrderHistoryPage(){
                         <th>Customer</th>
                         <th>Date</th>
                         <th>Amount</th>
-                        <th>Items</th>
+                        <th>Quantity</th>
                         <th>Status</th>
                       </tr>
                     </thead>
@@ -196,10 +192,10 @@ export default function OrderHistoryPage(){
                           ) : (
                             <>
                               <td className="fw-medium">#{o.id}</td>
-                              <td>{o.customer_username || o.customer}</td>
+                              <td>{o.customer_first_name} {o.customer_last_name}</td>
                               <td>{new Date(o.created_at).toLocaleDateString()}</td>
                               <td className="fw-medium">₱{parseFloat(o.total_amount || 0).toFixed(2)}</td>
-                              <td>{o.items?.length || 0} item(s)</td>
+                              <td>{o.items ? o.items.reduce((total, item) => total + (item.qty_full_out || 0), 0) : 0}</td>
                               <td>
                                 <span className={`badge ${getStatusBadgeClass(o.status)}`}>
                                   {getStatusDisplayText(o.status)}
@@ -215,32 +211,36 @@ export default function OrderHistoryPage(){
                 
                 {/* Mobile Card View */}
                 <div className="d-md-none">
-                  <div className="list-group list-group-flush">
+                  <div className="row">
                     {(orders || []).map(o => (
-                      <div key={o.id} className="list-group-item">
-                        <div className="d-flex justify-content-between align-items-start mb-2">
-                          <div>
-                            <h6 className="mb-1">Order #{o.id}</h6>
-                            <small className="text-muted">{new Date(o.created_at).toLocaleDateString()}</small>
+                      <div key={o.id} className="col-12 col-sm-6 col-lg-4 mb-3">
+                        <div className="card shadow-sm h-100">
+                          <div className="card-body">
+                            <div className="d-flex justify-content-between align-items-start mb-2">
+                              <div>
+                                <h6 className="mb-1">Order #{o.id}</h6>
+                                <small className="text-muted">{new Date(o.created_at).toLocaleDateString()}</small>
+                              </div>
+                              <span className={`badge ${getStatusBadgeClass(o.status)}`}>
+                                {getStatusDisplayText(o.status)}
+                              </span>
+                            </div>
+                            
+                            <div className="mb-2">
+                              <small className="text-muted">Customer:</small>
+                              <div>{`${o.customer_first_name || ''} ${o.customer_last_name || ''}`.trim() || o.customer_username || o.customer}</div>
+                            </div>
+                            
+                            <div className="mb-2">
+                              <small className="text-muted">Amount:</small>
+                              <div className="fw-medium">₱{parseFloat(o.total_amount || 0).toFixed(2)}</div>
+                            </div>
+                            
+                            <div className="mb-0">
+                              <small className="text-muted">Items:</small>
+                              <div>{o.items ? o.items.reduce((total, item) => total + (item.qty_full_out || 0) + (item.qty_empty_in || 0), 0) : 0} item(s)</div>
+                            </div>
                           </div>
-                          <span className={`badge ${getStatusBadgeClass(o.status)}`}>
-                            {getStatusDisplayText(o.status)}
-                          </span>
-                        </div>
-                        
-                        <div className="mb-2">
-                          <small className="text-muted">Customer:</small>
-                          <div>{o.customer_username || o.customer}</div>
-                        </div>
-                        
-                        <div className="mb-2">
-                          <small className="text-muted">Amount:</small>
-                          <div className="fw-medium">₱{parseFloat(o.total_amount || 0).toFixed(2)}</div>
-                        </div>
-                        
-                        <div className="mb-0">
-                          <small className="text-muted">Items:</small>
-                          <div>{o.items?.length || 0} item(s)</div>
                         </div>
                       </div>
                     ))}

@@ -22,13 +22,15 @@ export default function AdminInventory() {
     queryFn: async()=> (await api.get('/products/')).data 
   })
   
-
-  
   const [editing, setEditing] = useState(null)
   const [formData, setFormData] = useState({})
   
   const updateProduct = useMutation({
-    mutationFn: ({ id, data }) => api.patch(`/products/${id}/`, data),
+    mutationFn: ({ id, data }) => {
+      // Remove stock fields since they're calculated
+      const { stock_full, stock_empty, threshold, ...updateData } = data;
+      return api.patch(`/products/${id}/`, updateData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['products'])
       setEditing(null)
@@ -53,15 +55,58 @@ export default function AdminInventory() {
   
   const productList = products?.results || products || []
   
+  // We need to calculate stock values based on orders
+  // Let's fetch orders to calculate the stock values
+  const { data: orders } = useQuery({ 
+    queryKey: ['orders-for-inventory'], 
+    queryFn: async () => (await api.get('/orders/')).data 
+  })
+  
+  // Calculate stock values based on orders
+  const calculateStockValues = (product) => {
+    if (!orders) return { delivered: 0, returned: 0, toBeReturned: 0 }
+    
+    // Get all order items for this product
+    const orderItems = []
+    const ordersArray = Array.isArray(orders) ? orders : 
+                       (orders.results ? orders.results : [])
+    
+    ordersArray.forEach(order => {
+      if (order.items) {
+        order.items.forEach(item => {
+          if (item.product === product.id || item.product_id === product.id) {
+            orderItems.push({
+              ...item,
+              order_status: order.status
+            })
+          }
+        })
+      }
+    })
+    
+    // Calculate totals
+    let delivered = 0
+    let returned = 0
+    
+    orderItems.forEach(item => {
+      // Only count delivered orders
+      if (item.order_status === 'delivered') {
+        delivered += item.qty_full_out || 0
+        returned += item.qty_empty_in || 0
+      }
+    })
+    
+    const toBeReturned = delivered - returned
+    
+    return { delivered, returned, toBeReturned }
+  }
+  
   const handleEdit = (product) => {
     setEditing(product.id)
     setFormData({
       name: product.name,
       sku: product.sku,
       price: product.price,
-      stock_full: product.stock_full,
-      stock_empty: product.stock_empty,
-      threshold: product.threshold,
       active: product.active
     })
   }
@@ -87,7 +132,7 @@ export default function AdminInventory() {
             className="btn btn-success d-flex align-items-center gap-2"
             onClick={() => {
               setEditing('new')
-              setFormData({ name: '', sku: '', price: 0, stock_full: 0, stock_empty: 0, threshold: 10, active: true })
+              setFormData({ name: '', sku: '', price: 0, active: true })
             }}
           >
             <Plus size={18} />
@@ -122,9 +167,9 @@ export default function AdminInventory() {
                         <th>Product</th>
                         <th>SKU</th>
                         <th>Price</th>
-                        <th>Full Stock</th>
-                        <th>Empty Stock</th>
-                        <th>Threshold</th>
+                        <th>Delivered Stock</th>
+                        <th>Returned Container</th>
+                        <th>To be Returned Container</th>
                         <th>Status</th>
                         <th>Actions</th>
                       </tr>
@@ -161,28 +206,13 @@ export default function AdminInventory() {
                             </div>
                           </td>
                           <td>
-                            <input 
-                              className="form-control form-control-sm" 
-                              type="number" 
-                              value={formData.stock_full || ''} 
-                              onChange={e => setFormData({...formData, stock_full: e.target.value})} 
-                            />
+                            <div className="form-control-plaintext form-control-sm">0</div>
                           </td>
                           <td>
-                            <input 
-                              className="form-control form-control-sm" 
-                              type="number" 
-                              value={formData.stock_empty || ''} 
-                              onChange={e => setFormData({...formData, stock_empty: e.target.value})} 
-                            />
+                            <div className="form-control-plaintext form-control-sm">0</div>
                           </td>
                           <td>
-                            <input 
-                              className="form-control form-control-sm" 
-                              type="number" 
-                              value={formData.threshold || ''} 
-                              onChange={e => setFormData({...formData, threshold: e.target.value})} 
-                            />
+                            <div className="form-control-plaintext form-control-sm">0</div>
                           </td>
                           <td>
                             <select 
@@ -212,120 +242,119 @@ export default function AdminInventory() {
                           </td>
                         </tr>
                       )}
-                      {productList.map(p => (
-                        <tr 
-                          key={p.id} 
-                          className={p.stock_full < p.threshold ? 'table-warning' : ''}
-                        >
-                          {editing === p.id ? (
-                            <>
-                              <td>
-                                <input 
-                                  className="form-control form-control-sm" 
-                                  value={formData.name} 
-                                  onChange={e => setFormData({...formData, name: e.target.value})} 
-                                />
-                              </td>
-                              <td>
-                                <input 
-                                  className="form-control form-control-sm" 
-                                  value={formData.sku} 
-                                  onChange={e => setFormData({...formData, sku: e.target.value})} 
-                                />
-                              </td>
-                              <td>
-                                <div className="input-group input-group-sm">
-                                  <span className="input-group-text">₱</span>
-                                  <input 
-                                    className="form-control" 
-                                    type="number" 
-                                    step="0.01" 
-                                    value={formData.price} 
-                                    onChange={e => setFormData({...formData, price: e.target.value})} 
-                                  />
-                                </div>
-                              </td>
-                              <td>
-                                <input 
-                                  className="form-control form-control-sm" 
-                                  type="number" 
-                                  value={formData.stock_full} 
-                                  onChange={e => setFormData({...formData, stock_full: e.target.value})} 
-                                />
-                              </td>
-                              <td>
-                                <input 
-                                  className="form-control form-control-sm" 
-                                  type="number" 
-                                  value={formData.stock_empty} 
-                                  onChange={e => setFormData({...formData, stock_empty: e.target.value})} 
-                                />
-                              </td>
-                              <td>
-                                <input 
-                                  className="form-control form-control-sm" 
-                                  type="number" 
-                                  value={formData.threshold} 
-                                  onChange={e => setFormData({...formData, threshold: e.target.value})} 
-                                />
-                              </td>
-                              <td>
-                                <select 
-                                  className="form-select form-select-sm" 
-                                  value={formData.active ? 'true' : 'false'} 
-                                  onChange={e => setFormData({...formData, active: e.target.value === 'true'})}
-                                >
-                                  <option value="true">Active</option>
-                                  <option value="false">Inactive</option>
-                                </select>
-                              </td>
-                              <td>
-                                <div className="d-flex gap-1">
-                                  <button 
-                                    className="btn btn-success btn-sm" 
-                                    onClick={() => handleSave(p.id)}
-                                  >
-                                    Save
-                                  </button>
-                                  <button 
-                                    className="btn btn-outline-secondary btn-sm" 
-                                    onClick={() => setEditing(null)}
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </td>
-                            </>
-                          ) : (
-                            <>
-                              <td className="fw-medium">{p.name}</td>
-                              <td>{p.sku}</td>
-                              <td>₱{parseFloat(p.price).toFixed(2)}</td>
-                              <td className={p.stock_full < p.threshold ? 'text-danger fw-bold' : ''}>
-                                {p.stock_full}
-                                {p.stock_full < p.threshold && (
-                                  <AlertTriangle size={14} className="ms-1 text-warning" />
-                                )}
-                              </td>
-                              <td>{p.stock_empty}</td>
-                              <td>{p.threshold}</td>
-                              <td>
-                                <span className={`badge ${p.active ? 'bg-success' : 'bg-secondary'}`}>
-                                  {p.active ? 'Active' : 'Inactive'}
-                                </span>
-                              </td>
-                              <td>
-                                <button 
-                                  className="btn btn-outline-primary btn-sm" 
-                                  onClick={() => handleEdit(p)}
-                                >
-                                  Edit
-                                </button>
-                              </td>
-                            </>
-                          )}
-                        </tr>
-                      ))}
+                      {productList.map(p => {
+  const stockValues = calculateStockValues(p)
+  return (
+    <tr 
+      key={p.id} 
+      className={stockValues.toBeReturned > 0 ? 'table-warning' : ''}
+    >
+      {editing === p.id ? (
+        <>
+          <td>
+            <input 
+              className="form-control form-control-sm" 
+              value={formData.name} 
+              onChange={e => setFormData({...formData, name: e.target.value})} 
+            />
+          </td>
+          <td>
+            <input 
+              className="form-control form-control-sm" 
+              value={formData.sku} 
+              onChange={e => setFormData({...formData, sku: e.target.value})} 
+            />
+          </td>
+          <td>
+            <div className="input-group input-group-sm">
+              <span className="input-group-text">₱</span>
+              <input 
+                className="form-control" 
+                type="number" 
+                step="0.01" 
+                value={formData.price} 
+                onChange={e => setFormData({...formData, price: e.target.value})} 
+              />
+            </div>
+          </td>
+          <td>
+            {/* Delivered Stock - Read only now */}
+            <div className="form-control-plaintext form-control-sm">
+              {stockValues.delivered}
+            </div>
+          </td>
+          <td>
+            {/* Returned Container - Read only now */}
+            <div className="form-control-plaintext form-control-sm">
+              {stockValues.returned}
+            </div>
+          </td>
+          <td>
+            {/* To be Returned Container - Read only now */}
+            <div className={`form-control-plaintext form-control-sm ${stockValues.toBeReturned > 0 ? 'text-danger fw-bold' : ''}`}>
+              {stockValues.toBeReturned}
+            </div>
+          </td>
+          <td>
+            <select 
+              className="form-select form-select-sm" 
+              value={formData.active ? 'true' : 'false'} 
+              onChange={e => setFormData({...formData, active: e.target.value === 'true'})}
+            >
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </td>
+          <td>
+            <div className="d-flex gap-1">
+              <button 
+                className="btn btn-success btn-sm" 
+                onClick={() => handleSave(p.id)}
+              >
+                Save
+              </button>
+              <button 
+                className="btn btn-outline-secondary btn-sm" 
+                onClick={() => setEditing(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </td>
+        </>
+      ) : (
+        <>
+          <td className="fw-medium">{p.name}</td>
+          <td>{p.sku}</td>
+          <td>₱{parseFloat(p.price).toFixed(2)}</td>
+          <td className={stockValues.toBeReturned > 0 ? 'text-danger fw-bold' : ''}>
+            {stockValues.delivered}
+            {stockValues.toBeReturned > 0 && (
+              <AlertTriangle size={14} className="ms-1 text-warning" />
+            )}
+          </td>
+          <td>{stockValues.returned}</td>
+          <td className={stockValues.toBeReturned > 0 ? 'text-danger fw-bold' : ''}>
+            {stockValues.toBeReturned}
+          </td>
+          <td>
+            <span className={`badge ${p.active ? 'bg-success' : 'bg-secondary'}`}>
+              {p.active ? 'Active' : 'Inactive'}
+            </span>
+          </td>
+          <td>
+            <button 
+              className="btn btn-outline-primary btn-sm" 
+              onClick={() => handleEdit(p)}
+            >
+              Edit
+            </button>
+          </td>
+        </>
+      )}
+    </tr>
+  )
+})}
                       {productList.length === 0 && !isLoading && (
                         <tr>
                           <td colSpan="8" className="text-center py-5">
@@ -341,31 +370,33 @@ export default function AdminInventory() {
                 
                 {/* Mobile Card View */}
                 <div className="d-md-none">
-                  <div className="list-group list-group-flush">
-                    {editing === 'new' && (
-                      <div className="list-group-item bg-warning">
-                        <h6 className="mb-3">Add New Product</h6>
-                        <div className="mb-2">
-                          <label className="form-label small">Product Name</label>
+                  {editing === 'new' && (
+                    <div className="card mb-3 border-warning">
+                      <div className="card-header bg-warning bg-opacity-10">
+                        <h5 className="mb-0">Add New Product</h5>
+                      </div>
+                      <div className="card-body">
+                        <div className="mb-3">
+                          <label className="form-label">Product Name</label>
                           <input 
-                            className="form-control form-control-sm" 
+                            className="form-control" 
                             placeholder="Product name" 
                             value={formData.name || ''} 
                             onChange={e => setFormData({...formData, name: e.target.value})} 
                           />
                         </div>
-                        <div className="mb-2">
-                          <label className="form-label small">SKU</label>
+                        <div className="mb-3">
+                          <label className="form-label">SKU</label>
                           <input 
-                            className="form-control form-control-sm" 
+                            className="form-control" 
                             placeholder="SKU" 
                             value={formData.sku || ''} 
                             onChange={e => setFormData({...formData, sku: e.target.value})} 
                           />
                         </div>
-                        <div className="mb-2">
-                          <label className="form-label small">Price</label>
-                          <div className="input-group input-group-sm">
+                        <div className="mb-3">
+                          <label className="form-label">Price</label>
+                          <div className="input-group">
                             <span className="input-group-text">₱</span>
                             <input 
                               className="form-control" 
@@ -376,37 +407,24 @@ export default function AdminInventory() {
                             />
                           </div>
                         </div>
-                        <div className="mb-2">
-                          <label className="form-label small">Full Stock</label>
-                          <input 
-                            className="form-control form-control-sm" 
-                            type="number" 
-                            value={formData.stock_full || ''} 
-                            onChange={e => setFormData({...formData, stock_full: e.target.value})} 
-                          />
-                        </div>
-                        <div className="mb-2">
-                          <label className="form-label small">Empty Stock</label>
-                          <input 
-                            className="form-control form-control-sm" 
-                            type="number" 
-                            value={formData.stock_empty || ''} 
-                            onChange={e => setFormData({...formData, stock_empty: e.target.value})} 
-                          />
-                        </div>
-                        <div className="mb-2">
-                          <label className="form-label small">Threshold</label>
-                          <input 
-                            className="form-control form-control-sm" 
-                            type="number" 
-                            value={formData.threshold || ''} 
-                            onChange={e => setFormData({...formData, threshold: e.target.value})} 
-                          />
+                        <div className="row g-2">
+                          <div className="col-6">
+                            <label className="form-label">Delivered Stock</label>
+                            <div className="form-control-plaintext">0</div>
+                          </div>
+                          <div className="col-6">
+                            <label className="form-label">Returned Container</label>
+                            <div className="form-control-plaintext">0</div>
+                          </div>
                         </div>
                         <div className="mb-3">
-                          <label className="form-label small">Status</label>
+                          <label className="form-label">To be Returned Container</label>
+                          <div className="form-control-plaintext">0</div>
+                        </div>
+                        <div className="mb-3">
+                          <label className="form-label">Status</label>
                           <select 
-                            className="form-select form-select-sm" 
+                            className="form-select" 
                             value={formData.active ? 'true' : 'false'} 
                             onChange={e => setFormData({...formData, active: e.target.value === 'true'})}
                           >
@@ -416,164 +434,164 @@ export default function AdminInventory() {
                         </div>
                         <div className="d-flex gap-2">
                           <button 
-                            className="btn btn-success btn-sm flex-fill" 
+                            className="btn btn-success flex-fill" 
                             onClick={() => handleSave(null)}
                           >
                             Save
                           </button>
                           <button 
-                            className="btn btn-outline-secondary btn-sm flex-fill" 
+                            className="btn btn-outline-secondary" 
                             onClick={() => setEditing(null)}
                           >
                             Cancel
                           </button>
                         </div>
                       </div>
-                    )}
-                    {productList.map(p => (
-                      <div key={p.id} className={`list-group-item ${p.stock_full < p.threshold ? 'bg-warning bg-opacity-25' : ''}`}>
-                        {editing === p.id ? (
-                          <>
-                            <h6 className="mb-3">Edit Product</h6>
-                            <div className="mb-2">
-                              <label className="form-label small">Product Name</label>
+                    </div>
+                  )}
+                  
+                  {productList.map(p => {
+                    const stockValues = calculateStockValues(p)
+                    return (
+                    <div key={p.id} className="card mb-3">
+                      {editing === p.id ? (
+                        <div className="card-body">
+                          <div className="mb-3">
+                            <label className="form-label">Product Name</label>
+                            <input 
+                              className="form-control" 
+                              value={formData.name} 
+                              onChange={e => setFormData({...formData, name: e.target.value})} 
+                            />
+                          </div>
+                          <div className="mb-3">
+                            <label className="form-label">SKU</label>
+                            <input 
+                              className="form-control" 
+                              value={formData.sku} 
+                              onChange={e => setFormData({...formData, sku: e.target.value})} 
+                            />
+                          </div>
+                          <div className="mb-3">
+                            <label className="form-label">Price</label>
+                            <div className="input-group">
+                              <span className="input-group-text">₱</span>
                               <input 
-                                className="form-control form-control-sm" 
-                                value={formData.name} 
-                                onChange={e => setFormData({...formData, name: e.target.value})} 
+                                className="form-control" 
+                                type="number" 
+                                step="0.01" 
+                                value={formData.price} 
+                                onChange={e => setFormData({...formData, price: e.target.value})} 
                               />
                             </div>
-                            <div className="mb-2">
-                              <label className="form-label small">SKU</label>
-                              <input 
-                                className="form-control form-control-sm" 
-                                value={formData.sku} 
-                                onChange={e => setFormData({...formData, sku: e.target.value})} 
-                              />
-                            </div>
-                            <div className="mb-2">
-                              <label className="form-label small">Price</label>
-                              <div className="input-group input-group-sm">
-                                <span className="input-group-text">₱</span>
-                                <input 
-                                  className="form-control" 
-                                  type="number" 
-                                  step="0.01" 
-                                  value={formData.price} 
-                                  onChange={e => setFormData({...formData, price: e.target.value})} 
-                                />
+                          </div>
+                          <div className="row g-2">
+                            <div className="col-6">
+                              <label className="form-label">Delivered Stock</label>
+                              <div className="form-control-plaintext">
+                                {stockValues.delivered}
                               </div>
                             </div>
-                            <div className="mb-2">
-                              <label className="form-label small">Full Stock</label>
-                              <input 
-                                className="form-control form-control-sm" 
-                                type="number" 
-                                value={formData.stock_full} 
-                                onChange={e => setFormData({...formData, stock_full: e.target.value})} 
-                              />
-                            </div>
-                            <div className="mb-2">
-                              <label className="form-label small">Empty Stock</label>
-                              <input 
-                                className="form-control form-control-sm" 
-                                type="number" 
-                                value={formData.stock_empty} 
-                                onChange={e => setFormData({...formData, stock_empty: e.target.value})} 
-                              />
-                            </div>
-                            <div className="mb-2">
-                              <label className="form-label small">Threshold</label>
-                              <input 
-                                className="form-control form-control-sm" 
-                                type="number" 
-                                value={formData.threshold} 
-                                onChange={e => setFormData({...formData, threshold: e.target.value})} 
-                              />
-                            </div>
-                            <div className="mb-3">
-                              <label className="form-label small">Status</label>
-                              <select 
-                                className="form-select form-select-sm" 
-                                value={formData.active ? 'true' : 'false'} 
-                                onChange={e => setFormData({...formData, active: e.target.value === 'true'})}
-                              >
-                                <option value="true">Active</option>
-                                <option value="false">Inactive</option>
-                              </select>
-                            </div>
-                            <div className="d-flex gap-2">
-                              <button 
-                                className="btn btn-success btn-sm flex-fill" 
-                                onClick={() => handleSave(p.id)}
-                              >
-                                Save
-                              </button>
-                              <button 
-                                className="btn btn-outline-secondary btn-sm flex-fill" 
-                                onClick={() => setEditing(null)}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="d-flex justify-content-between align-items-start mb-2">
-                              <div>
-                                <h6 className="mb-1">{p.name}</h6>
-                                <small className="text-muted">SKU: {p.sku}</small>
+                            <div className="col-6">
+                              <label className="form-label">Returned Container</label>
+                              <div className="form-control-plaintext">
+                                {stockValues.returned}
                               </div>
-                              <span className={`badge ${p.active ? 'bg-success' : 'bg-secondary'}`}>
-                                {p.active ? 'Active' : 'Inactive'}
-                              </span>
                             </div>
-                            
-                            <div className="mb-2">
-                              <small className="text-muted">Price:</small>
-                              <div>₱{parseFloat(p.price).toFixed(2)}</div>
+                          </div>
+                          <div className="mb-3">
+                            <label className="form-label">To be Returned Container</label>
+                            <div className={`form-control-plaintext ${stockValues.toBeReturned > 0 ? 'text-danger fw-bold' : ''}`}>
+                              {stockValues.toBeReturned}
                             </div>
-                            
-                            <div className="mb-2">
-                              <small className="text-muted">Stock:</small>
-                              <div className={p.stock_full < p.threshold ? 'text-danger fw-bold' : ''}>
-                                Full: {p.stock_full} | Empty: {p.stock_empty}
-                                {p.stock_full < p.threshold && (
+                          </div>
+                          <div className="mb-3">
+                            <label className="form-label">Status</label>
+                            <select 
+                              className="form-select" 
+                              value={formData.active ? 'true' : 'false'} 
+                              onChange={e => setFormData({...formData, active: e.target.value === 'true'})}
+                            >
+                              <option value="true">Active</option>
+                              <option value="false">Inactive</option>
+                            </select>
+                          </div>
+                          <div className="d-flex gap-2">
+                            <button 
+                              className="btn btn-success flex-fill" 
+                              onClick={() => handleSave(p.id)}
+                            >
+                              Save
+                            </button>
+                            <button 
+                              className="btn btn-outline-secondary" 
+                              onClick={() => setEditing(null)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="card-body">
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                              <h5 className="card-title mb-1">{p.name}</h5>
+                              <p className="card-text text-muted mb-0">SKU: {p.sku}</p>
+                            </div>
+                            <span className={`badge ${p.active ? 'bg-success' : 'bg-secondary'}`}>
+                              {p.active ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          
+                          <div className="row g-2 mb-3">
+                            <div className="col-6">
+                              <small className="text-muted">Price</small>
+                              <div className="fw-medium">₱{parseFloat(p.price).toFixed(2)}</div>
+                            </div>
+                            <div className="col-6">
+                              <small className="text-muted">Delivered Stock</small>
+                              <div className={`fw-medium ${stockValues.toBeReturned > 0 ? 'text-danger' : ''}`}>
+                                {stockValues.delivered}
+                                {stockValues.toBeReturned > 0 && (
                                   <AlertTriangle size={14} className="ms-1 text-warning" />
                                 )}
                               </div>
                             </div>
-                            
-                            <div className="mb-2">
-                              <small className="text-muted">Threshold:</small>
-                              <div>{p.threshold}</div>
+                            <div className="col-6">
+                              <small className="text-muted">Returned Container</small>
+                              <div className="fw-medium">{stockValues.returned}</div>
                             </div>
-                            
-                            <button 
-                              className="btn btn-outline-primary btn-sm w-100" 
-                              onClick={() => handleEdit(p)}
-                            >
-                              Edit
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                    {productList.length === 0 && !isLoading && !editing && (
-                      <div className="list-group-item text-center py-5">
-                        <Package size={48} className="text-muted mb-3" />
-                        <h5 className="mb-1">No products found</h5>
-                        <p className="text-muted mb-0">Add your first product to get started</p>
-                      </div>
-                    )}
-                  </div>
+                            <div className="col-6">
+                              <small className="text-muted">To be Returned Container</small>
+                              <div className={`fw-medium ${stockValues.toBeReturned > 0 ? 'text-danger fw-bold' : ''}`}>
+                                {stockValues.toBeReturned}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <button 
+                            className="btn btn-outline-primary w-100" 
+                            onClick={() => handleEdit(p)}
+                          >
+                            Edit Product
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )})}
+                  
+                  {productList.length === 0 && !isLoading && (
+                    <div className="text-center py-5">
+                      <Package size={48} className="text-muted mb-3" />
+                      <h5 className="mb-1">No products found</h5>
+                      <p className="text-muted mb-0">Add your first product to get started</p>
+                    </div>
+                  )}
                 </div>
               </>
             )}
           </div>
         </div>
-
-
       </div>
     </AppShell>
   )

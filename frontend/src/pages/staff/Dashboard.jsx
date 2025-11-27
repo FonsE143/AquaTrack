@@ -43,7 +43,7 @@ export default function StaffDashboard(){
     return {
       id: o.id, 
       code: o.id, 
-      customer: o.customer_username || o.customer, 
+      customer: `${o.customer_first_name || ''} ${o.customer_last_name || ''}`.trim() || o.customer_username || o.customer, 
       date: o.created_at ? new Date(o.created_at).toLocaleDateString() : '-', 
       status: o.status, 
       amount: o.total_amount
@@ -140,7 +140,8 @@ export default function StaffDashboard(){
               </div>
             ) : (
               <>
-                <div className="table-responsive">
+                {/* Desktop Table View */}
+                <div className="table-responsive d-none d-md-block">
                   <table className="table table-hover mb-0">
                     <thead className="table-light">
                       <tr>
@@ -185,6 +186,64 @@ export default function StaffDashboard(){
                     </tbody>
                   </table>
                 </div>
+                
+                {/* Mobile Card View */}
+                <div className="d-md-none">
+                  <div className="list-group list-group-flush">
+                    {orderList.slice(startIndex, endIndex).map(o => (
+                      <div key={o.id} className="list-group-item">
+                        <div className="d-flex justify-content-between align-items-start mb-2">
+                          <div>
+                            <h6 className="mb-1">Order #{o.id}</h6>
+                            <small className="text-muted">{new Date(o.created_at).toLocaleDateString()}</small>
+                          </div>
+                          <span className={`badge ${
+                            o.status === 'delivered' ? 'bg-success' :
+                            o.status === 'cancelled' ? 'bg-danger' :
+                            o.status === 'out' ? 'bg-info' :
+                            'bg-warning'
+                          }`}>
+                            {o.status}
+                          </span>
+                        </div>
+                        
+                        <div className="mb-2">
+                          <small className="text-muted">Customer:</small>
+                          <div>{`${o.customer_first_name || ''} ${o.customer_last_name || ''}`.trim() || o.customer_username || o.customer}</div>
+                        </div>
+                        
+                        <div className="mb-2">
+                          <small className="text-muted">Amount:</small>
+                          <div className="fw-medium">₱{parseFloat(o.total_amount || 0).toFixed(2)}</div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Show empty items if less than 5 */}
+                    {Array.from({ length: Math.max(0, 5 - orderList.slice(startIndex, endIndex).length) }).map((_, index) => (
+                      <div key={`empty-${index}`} className="list-group-item">
+                        <div className="d-flex justify-content-between align-items-start mb-2">
+                          <div>
+                            <h6 className="mb-1">&nbsp;</h6>
+                            <small className="text-muted">&nbsp;</small>
+                          </div>
+                          <span className="badge">&nbsp;</span>
+                        </div>
+                        
+                        <div className="mb-2">
+                          <small className="text-muted">Customer:</small>
+                          <div>&nbsp;</div>
+                        </div>
+                        
+                        <div className="mb-2">
+                          <small className="text-muted">Amount:</small>
+                          <div className="fw-medium">&nbsp;</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
                 {/* Pagination Controls */}
                 <div className="card-footer bg-white border-0 py-3 d-flex justify-content-between align-items-center">
                   <div className="text-muted">

@@ -54,23 +54,81 @@ export default function CustomerNotifications(){
                 <p className="text-muted mb-0">You don't have any notifications at the moment</p>
               </div>
             ) : (
-              <div className="list-group list-group-flush">
-                {notifications.map(n => (
-                  <div key={n.id} className="list-group-item border-0 px-4 py-3">
-                    <div className="d-flex justify-content-between align-items-start">
-                      <div className="flex-grow-1">
-                        <p className="mb-1">{n.message}</p>
-                        <small className="text-muted">
-                          {new Date(n.sent_at).toLocaleString()}
-                        </small>
+              <>
+                {/* Desktop Table View */}
+                <div className="table-responsive d-none d-md-block">
+                  <table className="table table-hover mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Message</th>
+                        <th>Type</th>
+                        <th>Driver</th>
+                        <th>Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {notifications.map(n => {
+                        // Extract driver name from message if it's a delivery notification
+                        let driverName = 'N/A';
+                        if (n.message) {
+                          // Try to extract driver name for both "delivered by" and "by" patterns
+                          let match;
+                          // Check for "delivered by [name]" pattern
+                          if (n.message.includes('delivered by')) {
+                            match = n.message.match(/delivered by ([^.]+)[.]/);
+                          }
+                          // Check for "by [name]" pattern (for Out for Delivery notifications)
+                          else if (n.message.includes(' by ')) {
+                            match = n.message.match(/ by ([^.]+)[.]/);
+                          }
+                          
+                          if (match && match[1]) {
+                            driverName = match[1].trim();
+                          }
+                        }
+                        
+                        return (
+                          <tr key={n.id}>
+                            <td className="align-middle">{n.message}</td>
+                            <td>
+                              <span className="badge bg-secondary-subtle text-secondary-emphasis">
+                                {n.type}
+                              </span>
+                            </td>
+                            <td className="align-middle">
+                              {driverName}
+                            </td>
+                            <td className="text-muted align-middle">
+                              {new Date(n.sent_at).toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {/* Mobile Card View */}
+                <div className="d-md-none">
+                  <div className="list-group list-group-flush">
+                    {notifications.map(n => (
+                      <div key={n.id} className="list-group-item border-0 px-4 py-3">
+                        <div className="d-flex justify-content-between align-items-start">
+                          <div className="flex-grow-1">
+                            <p className="mb-1">{n.message}</p>
+                            <small className="text-muted">
+                              {new Date(n.sent_at).toLocaleString()}
+                            </small>
+                          </div>
+                          <span className="badge bg-secondary-subtle text-secondary-emphasis ms-2">
+                            {n.type}
+                          </span>
+                        </div>
                       </div>
-                      <span className="badge bg-secondary-subtle text-secondary-emphasis ms-2">
-                        {n.type}
-                      </span>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              </>
             )}
           </div>
         </div>
