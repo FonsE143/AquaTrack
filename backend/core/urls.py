@@ -4,7 +4,8 @@ from rest_framework.routers import DefaultRouter
 from core.api.views import (
     ProductViewSet, OrderViewSet, DeliveryViewSet,
     CustomerViewSet, StaffViewSet, ReportViewSet,
-    NotificationViewSet, MeView, DriverViewSet, ActivityLogViewSet, OrderHistoryViewSet, CancelledOrderViewSet, ProfileViewSet
+    NotificationViewSet, MeView, DriverViewSet, ActivityLogViewSet, OrderHistoryViewSet, CancelledOrderViewSet, ProfileViewSet,
+    MunicipalityViewSet, BarangayViewSet, AddressViewSet, WalkInOrderViewSet, RouteViewSet, VehicleViewSet, DeploymentViewSet
 )
 from core.api.export import export_customers, export_staff, export_products
 from core.api.account import ChangePasswordView, RegisterView
@@ -21,6 +22,14 @@ router.register(r'customers', CustomerViewSet, basename='customers')  # explicit
 router.register(r'staff', StaffViewSet, basename='staff')              # explicit
 router.register(r'notifications', NotificationViewSet, basename='notifications')
 router.register(r'profiles', ProfileViewSet, basename='profiles')
+# New models
+router.register(r'municipalities', MunicipalityViewSet, basename='municipalities')
+router.register(r'barangays', BarangayViewSet, basename='barangays')
+router.register(r'addresses', AddressViewSet, basename='addresses')
+router.register(r'walk-in-orders', WalkInOrderViewSet, basename='walk-in-orders')
+router.register(r'routes', RouteViewSet, basename='routes')
+router.register(r'vehicles', VehicleViewSet, basename='vehicles')
+router.register(r'deployments', DeploymentViewSet, basename='deployments')
 
 urlpatterns = [
     path('api/', include(router.urls)),

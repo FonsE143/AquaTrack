@@ -64,6 +64,28 @@ CORS_ALLOW_CREDENTIALS = True
 # Allow all origins in development (remove in production)
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
 
+# Additional CORS settings
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
 AUTH_USER_MODEL = 'core.User'
 
 ROOT_URLCONF = 'waterstation.urls'

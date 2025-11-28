@@ -49,7 +49,7 @@ def run():
     # Create products
     p1, created = Product.objects.get_or_create(
         name='Refill 5L', 
-        defaults={'sku': 'R5L', 'price': 30, 'stock_full': 100, 'stock_empty': 20, 'threshold': 20}
+        defaults={'sku': 'R5L', 'price': 30, 'active': True}
     )
     if created:
         print("Created Refill 5L product")
@@ -58,7 +58,7 @@ def run():
 
     p2, created = Product.objects.get_or_create(
         name='Refill 20L', 
-        defaults={'sku': 'R20L', 'price': 60, 'stock_full': 80, 'stock_empty': 40, 'threshold': 15}
+        defaults={'sku': 'R20L', 'price': 60, 'active': True}
     )
     if created:
         print("Created Refill 20L product")

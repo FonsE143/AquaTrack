@@ -7,11 +7,12 @@ from django.db.models import Sum, Count, F, Q
 from django.utils import timezone
 from datetime import timedelta
 from core.models import Product, Order, Delivery, Profile, Notification, OrderHistory, CancelledOrder
+from core.models import ActivityLog, Municipality, Barangay, Address, WalkInOrder, Route, Vehicle, Deployment
 from .serializers import (
     ProductSerializer, OrderSerializer, DeliverySerializer, ProfileSerializer, NotificationSerializer,
-    ActivityLogSerializer, OrderHistorySerializer, CancelledOrderSerializer
+    ActivityLogSerializer, OrderHistorySerializer, CancelledOrderSerializer,
+    MunicipalitySerializer, BarangaySerializer, AddressSerializer, WalkInOrderSerializer, RouteSerializer, VehicleSerializer, DeploymentSerializer
 )
-from core.models import ActivityLog
 from .permissions import IsRole
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -20,12 +21,119 @@ class ProductViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_permissions(self):
-        # Admin can manage deliveries; drivers may update their delivery status
-        if self.action in ['create', 'destroy']:
+        # Admin can manage products; others can only view
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAuthenticated(), IsRole('admin')]
-        if self.action in ['update', 'partial_update']:
-            # allow authenticated users to update (actual role checks should be enforced in views if needed)
-            return [IsAuthenticated()]
+        return [IsAuthenticated()]
+
+class MunicipalityViewSet(viewsets.ModelViewSet):
+    queryset = Municipality.objects.all().order_by('name')
+    serializer_class = MunicipalitySerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_permissions(self):
+        # Admin can manage municipalities; others can only view
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsRole('admin')]
+        return [IsAuthenticated()]
+
+class BarangayViewSet(viewsets.ModelViewSet):
+    queryset = Barangay.objects.select_related('municipality').all().order_by('name')
+    serializer_class = BarangaySerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None  # Disable pagination for barangays
+    
+    def get_permissions(self):
+        # Admin can manage barangays; others can only view
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsRole('admin')]
+        return [IsAuthenticated()]
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        municipality = self.request.query_params.get('municipality', None)
+        if municipality:
+            queryset = queryset.filter(municipality=municipality)
+        return queryset
+
+class AddressViewSet(viewsets.ModelViewSet):
+    queryset = Address.objects.select_related('barangay', 'barangay__municipality').all()
+    serializer_class = AddressSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_permissions(self):
+        # Admin can manage addresses; others can only view
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsRole('admin')]
+        return [IsAuthenticated()]
+
+class WalkInOrderViewSet(viewsets.ModelViewSet):
+    queryset = WalkInOrder.objects.select_related('product').all().order_by('-created_at')
+    serializer_class = WalkInOrderSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_permissions(self):
+        # Staff and admin can manage walk-in orders
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsRole('admin', 'staff')]
+        return [IsAuthenticated()]
+    
+    def perform_create(self, serializer):
+        # Auto-set the date to now
+        serializer.save()
+
+class RouteViewSet(viewsets.ModelViewSet):
+    queryset = Route.objects.prefetch_related('municipalities', 'barangays').all().order_by('route_number')
+    serializer_class = RouteSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_permissions(self):
+        # Admin can manage routes; others can only view
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsRole('admin')]
+        return [IsAuthenticated()]
+    
+    def perform_create(self, serializer):
+        # Handle multiple municipalities and barangays
+        municipalities = self.request.data.get('municipalities', [])
+        barangays = self.request.data.get('barangays', [])
+        
+        # Save the route first
+        route = serializer.save()
+        
+        # Set municipalities
+        if municipalities:
+            route.municipalities.set(municipalities)
+        
+        # Set barangays
+        if barangays:
+            route.barangays.set(barangays)
+    
+    def perform_update(self, serializer):
+        # Handle multiple municipalities and barangays for updates
+        municipalities = self.request.data.get('municipalities', [])
+        barangays = self.request.data.get('barangays', [])
+        
+        # Save the route first
+        route = serializer.save()
+        
+        # Set municipalities
+        if municipalities:
+            route.municipalities.set(municipalities)
+        
+        # Set barangays
+        if barangays:
+            route.barangays.set(barangays)
+
+class VehicleViewSet(viewsets.ModelViewSet):
+    queryset = Vehicle.objects.all().order_by('name')
+    serializer_class = VehicleSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_permissions(self):
+        # Admin can manage vehicles; others can only view
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsRole('admin')]
         return [IsAuthenticated()]
 
 class CustomerViewSet(viewsets.ModelViewSet):
@@ -45,6 +153,114 @@ class CustomerViewSet(viewsets.ModelViewSet):
             return queryset.filter(user=self.request.user)
         # Admin and staff can see all customers
         return queryset
+    
+    @action(detail=False, methods=['get'])
+    def outstanding_containers(self, request):
+        """Get outstanding containers for the current customer"""
+        if not hasattr(request.user, 'profile') or request.user.profile.role != 'customer':
+            return Response({'error': 'Only customers can access this endpoint'}, status=403)
+        
+        customer = request.user.profile
+        
+        # Get outstanding containers directly from the customer profile
+        # This is more reliable than calculating from order history
+        outstanding_data = customer.outstanding_containers or {}
+        
+        # Format the data for the frontend
+        outstanding_containers = []
+        from core.models import Product
+        for product_id_str, quantity in outstanding_data.items():
+            if quantity > 0:  # Only show products with outstanding containers
+                try:
+                    product = Product.objects.get(id=int(product_id_str))
+                    outstanding_containers.append({
+                        'product_id': int(product_id_str),
+                        'product_name': product.name,
+                        'quantity': quantity
+                    })
+                except (Product.DoesNotExist, ValueError):
+                    # Skip invalid product IDs
+                    continue
+        
+        return Response({
+            'outstanding_containers': outstanding_containers
+        })
+    
+    @action(detail=False, methods=['post'])
+    def return_containers(self, request):
+        """Allow customers to return outstanding containers"""
+        if not hasattr(request.user, 'profile') or request.user.profile.role != 'customer':
+            return Response({'error': 'Only customers can return containers'}, status=403)
+        
+        customer = request.user.profile
+        returns = request.data.get('returns', {})
+        
+        # Validate the returns data
+        if not isinstance(returns, dict):
+            return Response({'error': 'Invalid returns data format'}, status=400)
+        
+        # Get current outstanding containers
+        current_outstanding = customer.outstanding_containers or {}
+        
+        # Process each return
+        updates_made = False
+        for product_id_str, return_qty in returns.items():
+            try:
+                product_id = int(product_id_str)
+                return_qty = int(return_qty)
+                
+                # Validate return quantity
+                if return_qty <= 0:
+                    continue
+                    
+                # Check if customer has outstanding containers for this product
+                current_outstanding_qty = current_outstanding.get(product_id_str, 0)
+                if current_outstanding_qty <= 0:
+                    continue
+                
+                # Calculate new outstanding quantity
+                new_outstanding_qty = current_outstanding_qty - return_qty
+                
+                # Ensure we don't go below zero
+                new_outstanding_qty = max(0, new_outstanding_qty)
+                
+                # Update the outstanding containers
+                if new_outstanding_qty == 0:
+                    current_outstanding.pop(product_id_str, None)
+                else:
+                    current_outstanding[product_id_str] = new_outstanding_qty
+                
+                updates_made = True
+                
+            except (ValueError, TypeError):
+                # Skip invalid entries
+                continue
+        
+        # Save updated outstanding containers if changes were made
+        if updates_made:
+            customer.outstanding_containers = current_outstanding
+            customer.save(update_fields=['outstanding_containers'])
+            
+            # Log the container return
+            try:
+                from core.models import ActivityLog
+                ActivityLog.objects.create(
+                    actor=customer,
+                    action="container_return",
+                    entity="customer",
+                    meta={
+                        "returns": returns,
+                        "updated_outstanding": current_outstanding
+                    }
+                )
+            except Exception as e:
+                print(f"Failed to create activity log: {e}")
+        
+        return Response({
+            'message': 'Containers returned successfully',
+            'outstanding_containers': current_outstanding
+        })
+
 
 class StaffViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.filter(role='staff')
@@ -62,7 +278,7 @@ class DriverViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
 class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.all().prefetch_related('items__product', 'customer__user', 'delivery__driver__user')
+    queryset = Order.objects.select_related('product', 'customer__user').all()
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     
@@ -103,275 +319,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             except Profile.DoesNotExist:
                 raise PermissionDenied('Invalid customer specified')
         else:
-            # No customer specified, check if this is a walk-in order
-            notes = self.request.data.get('notes', '')
-            if 'walk-in' in notes.lower() or 'walk in' in notes.lower():
-                # Try to find the walk-in customer
-                try:
-                    walkin_customer = Profile.objects.get(user__username='walkin_customer', role='customer')
-                    serializer.save(customer=walkin_customer)
-                except Profile.DoesNotExist:
-                    # If no walk-in customer exists, save without customer (will be associated with current user)
-                    serializer.save()
-            else:
-                # Save without customer (will be associated with current user)
-                serializer.save()
-    
-    @action(detail=True, methods=['post'])
-    def process(self, request, pk=None):
-        # Permissions and allowed transitions:
-        if not hasattr(request.user, 'profile'):
-            raise PermissionDenied('Profile required')
-        actor_profile = request.user.profile
-        actor_role = actor_profile.role
-        order = self.get_object()
-        new_status = request.data.get('status')
-        driver_id = request.data.get('driver_id')
-        
-        # Validate status if provided
-        if new_status:
-            valid_statuses = [choice[0] for choice in Order.STATUS]
-            if new_status not in valid_statuses:
-                return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check if order is already in a final state
-        if order.status in ['delivered', 'cancelled']:
-            return Response({'error': f'Order is already in a final state.'}, status=status.HTTP_400_BAD_REQUEST)
-        # Staff/admin can set processing, out, cancelled. Driver can set delivered or cancelled but only if assigned.
-        # For walk-in orders, staff should also be able to set delivered status
-        # Staff should also be able to assign drivers without changing status
-        if actor_role in ['admin', 'staff']:
-            # Check if this is a walk-in order (based on notes)
-            is_walkin_order = 'walk-in' in (order.notes or '').lower() or 'walk in' in (order.notes or '').lower()
-            
-            # If only assigning driver (no status change), allow it
-            if not new_status and driver_id:
-                # Just assigning driver, no status change
-                pass
-            elif new_status and new_status not in ['processing', 'out', 'cancelled'] and not (new_status == 'delivered' and is_walkin_order):
-                return Response({'error': 'Not allowed for your role'}, status=status.HTTP_403_FORBIDDEN)
-        elif actor_role == 'driver':
-            # driver may only mark delivered or cancelled and must be assigned to the delivery
-            if new_status and new_status not in ['delivered', 'cancelled']:
-                return Response({'error': 'Not allowed for your role'}, status=status.HTTP_403_FORBIDDEN)
-            try:
-                delivery = order.delivery
-            except Delivery.DoesNotExist:
-                return Response({'error': 'No delivery assigned'}, status=status.HTTP_400_BAD_REQUEST)
-            if delivery.driver != request.user.profile:
-                return Response({'error': 'You are not assigned to this delivery'}, status=status.HTTP_403_FORBIDDEN)
-        else:
-            return Response({'error': 'Only staff, admin or driver may update order status'}, status=status.HTTP_403_FORBIDDEN)
-            
-        previous_status = order.status
-        
-        # Validate status transition if status is being changed
-        if new_status and new_status != previous_status:
-            valid_transitions = {
-                'processing': ['out', 'cancelled'],
-                'out': ['delivered', 'cancelled'],
-                'delivered': [],
-                'cancelled': []
-            }
-            
-            # For walk-in orders, allow direct transition from processing to delivered
-            is_walkin_order = 'walk-in' in (order.notes or '').lower() or 'walk in' in (order.notes or '').lower()
-            if is_walkin_order and previous_status == 'processing' and new_status == 'delivered':
-                # Allow this transition for walk-in orders
-                pass
-            elif new_status not in valid_transitions.get(previous_status, []):
-                return Response({'error': f'Cannot change status from {previous_status} to {new_status}'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Update order status if provided
-        if new_status:
-            order.status = new_status
-            if 'notes' in request.data:
-                order.notes = request.data['notes']
-            order.save()
-            
-            # If order is marked as delivered, also update the delivery status to completed
-            if new_status == 'delivered':
-                try:
-                    delivery = order.delivery
-                    if delivery and delivery.driver == actor_profile:
-                        delivery.status = 'completed'
-                        delivery.save()
-                except Delivery.DoesNotExist:
-                    # No delivery assigned, that's okay
-                    pass
-            
-            # Create activity log
-            try:
-                from core.models import ActivityLog
-                print(f"Creating activity log for order {order.id}: {previous_status} -> {new_status}")
-                ActivityLog.objects.create(
-                    actor=actor_profile,
-                    action='update_order_status',
-                    entity=f'order:{order.id}',
-                    meta={'from': previous_status, 'to': new_status, 'notes': request.data.get('notes', '')}
-                )
-                print(f"Activity log created successfully for order {order.id}")
-            except Exception as e:
-                # Log the error but don't break the request
-                print(f"Failed to create activity log: {e}")
-                import traceback
-                traceback.print_exc()
-            
-            # Send notification to customer about order status change
-            try:
-                from core.models import Notification
-                status_labels = dict(Order.STATUS)
-                status_label = status_labels.get(new_status, new_status.capitalize())
-                
-                # Create a more detailed message based on the status
-                if new_status == 'out':
-                    # Try to get driver info if available
-                    driver_info = ''
-                    try:
-                        delivery = order.delivery
-                        if delivery and delivery.driver:
-                            driver = delivery.driver
-                            driver_name = f"{driver.user.first_name} {driver.user.last_name}".strip()
-                            if not driver_name:
-                                driver_name = driver.user.username
-                            driver_info = f" by {driver_name}"
-                    except Delivery.DoesNotExist:
-                        pass
-                    
-                    message = f"Your order #{order.id} is now Out for Delivery{driver_info}."
-                elif new_status == 'delivered':
-                    message = f"Your order #{order.id} has been Delivered. Thank you for choosing our service!"
-                elif new_status == 'cancelled':
-                    reason = request.data.get('notes', '')
-                    if reason:
-                        message = f"Your order #{order.id} has been Cancelled. Reason: {reason}"
-                    else:
-                        message = f"Your order #{order.id} has been Cancelled."
-                else:
-                    message = f"Your order #{order.id} status has been updated to {status_label}."
-                
-                Notification.objects.create(
-                    user=order.customer,
-                    type='inapp',
-                    message=message
-                )
-            except Exception as e:
-                # Log the error but don't break the request
-                print(f"Failed to create customer notification: {e}")
-                import traceback
-                traceback.print_exc()
-            
-            # Create order history record
-            try:
-                OrderHistory.objects.create(
-                    order=order,
-                    status=new_status,
-                    updated_by=actor_profile
-                )
-            except Exception as e:
-                # Log the error but don't break the request
-                print(f"Failed to create order history: {e}")
-            
-            # If order is cancelled, create a CancelledOrder record
-            if new_status == 'cancelled':
-                try:
-                    CancelledOrder.objects.get_or_create(
-                        order=order,
-                        defaults={
-                            'reason': request.data.get('notes', ''),
-                            'cancelled_by': actor_profile
-                        }
-                    )
-                except Exception as e:
-                    # Log the error but don't break the request
-                    print(f"Failed to create cancelled order record: {e}")
-        
-        # create or update delivery information
-        if driver_id is not None:  # Allow unassigning driver with null
-            if driver_id:
-                try:
-                    driver = Profile.objects.get(id=driver_id, role='driver')
-                except Profile.DoesNotExist:
-                    raise NotFound('Driver not found')
-                delivery, created = Delivery.objects.get_or_create(order=order)
-                delivery.driver = driver
-                # If the order status is 'out', set the delivery status to 'assigned'
-                if order.status == 'out':
-                    delivery.status = 'assigned'
-                delivery.save()
-            else:
-                # Unassign driver by removing delivery record
-                Delivery.objects.filter(order=order).delete()
-        
-        serializer = self.get_serializer(order)
-        return Response(serializer.data)
-    
-    @action(detail=True, methods=['patch'])
-    def update_item(self, request, pk=None):
-        """Custom endpoint to update order items (specifically qty_empty_in for container returns)"""
-        order = self.get_object()
-        item_updates = request.data.get('items', [])
-        
-        # Only drivers assigned to this order's delivery can update items
-        # Admins and staff can also update items for walk-in orders
-        if not hasattr(request.user, 'profile'):
-            return Response({'error': 'Profile required'}, status=status.HTTP_403_FORBIDDEN)
-        
-        profile = request.user.profile
-        role = profile.role
-        
-        # Check if this is a walk-in order
-        is_walkin_order = 'walk-in' in (order.notes or '').lower() or 'walk in' in (order.notes or '').lower()
-        
-        # Allow drivers only for their assigned deliveries, and admins/staff for walk-in orders
-        if role == 'driver':
-            try:
-                delivery = order.delivery
-            except Delivery.DoesNotExist:
-                return Response({'error': 'No delivery assigned to this order'}, status=status.HTTP_400_BAD_REQUEST)
-                
-            if delivery.driver != profile:
-                return Response({'error': 'You are not assigned to this delivery'}, status=status.HTTP_403_FORBIDDEN)
-        elif role in ['admin', 'staff']:
-            # Only allow admins/staff to update walk-in orders
-            if not is_walkin_order:
-                return Response({'error': 'Only drivers can update order items for non-walk-in orders'}, status=status.HTTP_403_FORBIDDEN)
-        else:
-            return Response({'error': 'Not authorized to update order items'}, status=status.HTTP_403_FORBIDDEN)
-        
-        # Update each item
-        updated_items = []
-        for item_data in item_updates:
-            item_id = item_data.get('id')
-            qty_empty_in = item_data.get('qty_empty_in')
-            
-            if item_id is None or qty_empty_in is None:
-                continue
-                
-            try:
-                # Find the order item belonging to this order
-                item = order.items.get(id=item_id)
-                # Validate that qty_empty_in is not negative and not greater than qty_full_out
-                if qty_empty_in < 0:
-                    return Response({'error': f'qty_empty_in for item {item_id} cannot be negative'}, status=status.HTTP_400_BAD_REQUEST)
-                    
-                if qty_empty_in > item.qty_full_out:
-                    return Response({'error': f'qty_empty_in for item {item_id} cannot be greater than qty_full_out ({item.qty_full_out})'}, status=status.HTTP_400_BAD_REQUEST)
-                
-                # Update the item
-                item.qty_empty_in = qty_empty_in
-                item.save()
-                updated_items.append(item)
-            except order.items.model.DoesNotExist:
-                return Response({'error': f'Item {item_id} not found in this order'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Return updated order
-        serializer = self.get_serializer(order)
-        return Response(serializer.data)
-    
-    @action(detail=False, methods=['get'])
-    def statuses(self, request):
-        return Response([s for s,_ in Order.STATUS])
+            # Save without customer (will be associated with current user)
+            serializer.save()
 
 class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ActivityLog.objects.select_related('actor__user').order_by('-timestamp')
@@ -392,6 +341,16 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
         # Customers cannot see activity logs
         else:
             return queryset.none()
+    
+    @action(detail=False, methods=['get'])
+    def my_logs(self, request):
+        """Get activity logs for the current user"""
+        if not hasattr(request.user, 'profile'):
+            return Response({'error': 'User profile not found'}, status=404)
+        
+        logs = self.get_queryset().filter(actor=request.user.profile)
+        serializer = self.get_serializer(logs, many=True)
+        return Response(serializer.data)
 
 class OrderHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = OrderHistory.objects.select_related('order', 'updated_by__user')
@@ -415,7 +374,7 @@ class OrderHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         return queryset
 
 class DeliveryViewSet(viewsets.ModelViewSet):
-    queryset = Delivery.objects.select_related('order','driver')
+    queryset = Delivery.objects.select_related('order','driver','vehicle','route')
     serializer_class = DeliverySerializer
     permission_classes = [IsAuthenticated]
     
@@ -467,6 +426,43 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAuthenticated(), IsRole('admin')]
         return [IsAuthenticated()]
+    
+    @action(detail=True, methods=['patch'])
+    def assign_vehicle_route(self, request, pk=None):
+        """Assign a vehicle and route to a delivery"""
+        delivery = self.get_object()
+        vehicle_id = request.data.get('vehicle_id')
+        route_id = request.data.get('route_id')
+        
+        # Only admin and staff can assign vehicles and routes
+        if not hasattr(request.user, 'profile') or request.user.profile.role not in ['admin', 'staff']:
+            raise PermissionDenied('Only admin and staff can assign vehicles and routes')
+        
+        # Update vehicle if provided
+        if vehicle_id is not None:
+            if vehicle_id:
+                try:
+                    vehicle = Vehicle.objects.get(id=vehicle_id)
+                    delivery.vehicle = vehicle
+                except Vehicle.DoesNotExist:
+                    return Response({'error': 'Vehicle not found'}, status=status.HTTP_404_NOT_FOUND)
+            else:
+                delivery.vehicle = None
+        
+        # Update route if provided
+        if route_id is not None:
+            if route_id:
+                try:
+                    route = Route.objects.get(id=route_id)
+                    delivery.route = route
+                except Route.DoesNotExist:
+                    return Response({'error': 'Route not found'}, status=status.HTTP_404_NOT_FOUND)
+            else:
+                delivery.route = None
+        
+        delivery.save()
+        serializer = self.get_serializer(delivery)
+        return Response(serializer.data)
 
     @action(detail=False, methods=['post'])
     def auto_dispatch(self, request):
@@ -487,8 +483,9 @@ class ReportViewSet(views.APIView):
         return [IsAuthenticated(), IsRole('admin')]
     
     def get(self, request):
-        sales = Order.objects.values('created_at__date').annotate(
-            total=Sum('total_amount'), orders=Count('id')
+        # Only include delivered orders in sales data
+        sales = Order.objects.filter(status='delivered').values('created_at__date').annotate(
+            total=Sum('product__price'), orders=Count('id')
         ).order_by('-created_at__date')[:30]
         # Normalize sales dates to ISO strings and totals to floats for frontend charting
         sales_list = []
@@ -503,46 +500,99 @@ class ReportViewSet(views.APIView):
         # Get products with outstanding container returns
         # This query finds products where delivered containers > returned containers
         to_be_returned = []
-        delivered_products = Order.objects.filter(status='delivered').values(
-            'items__product__name'
-        ).annotate(
-            total_delivered=Sum('items__qty_full_out'),
-            total_returned=Sum('items__qty_empty_in')
-        ).filter(
-            total_delivered__gt=F('total_returned')
-        )
-
-        for product_data in delivered_products:
-            to_be_returned.append({
-                'name': product_data['items__product__name'],
-                'delivered': product_data['total_delivered'],
-                'returned': product_data['total_returned'] or 0,
-                'outstanding': product_data['total_delivered'] - (product_data['total_returned'] or 0)
-            })
-
-        top_customers = Order.objects.values(
+        # Since we don't have container tracking in the current model, we'll skip this for now
+        
+        top_customers = Order.objects.filter(status='delivered').values(
             'customer__user__username',
             'customer__first_name',
             'customer__last_name'
-        ).annotate(spend=Sum('total_amount')).order_by('-spend')[:10]
+        ).annotate(spend=Sum('product__price')).order_by('-spend')[:10]
         today = timezone.now().date()
         start_of_week = today - timedelta(days=today.weekday())
         start_of_month = today.replace(day=1)
 
         def aggregate_total(start_date):
-            return Order.objects.filter(created_at__date__gte=start_date).aggregate(total=Sum('total_amount'))['total'] or 0
+            return Order.objects.filter(status='delivered', created_at__date__gte=start_date).aggregate(total=Sum('product__price'))['total'] or 0
 
         revenue_summary = {
-            'today': float(Order.objects.filter(created_at__date=today).aggregate(total=Sum('total_amount'))['total'] or 0),
+            'today': float(Order.objects.filter(status='delivered', created_at__date=today).aggregate(total=Sum('product__price'))['total'] or 0),
             'week': float(aggregate_total(start_of_week)),
             'month': float(aggregate_total(start_of_month)),
         }
+        
+        # Get recent deliveries for display on dashboard
+        recent_deliveries = Delivery.objects.filter(
+            status='completed'
+        ).select_related(
+            'order', 'driver', 'vehicle'
+        ).order_by('-order__created_at')[:10]
+        
+        recent_deliveries_data = []
+        for delivery in recent_deliveries:
+            recent_deliveries_data.append({
+                'id': delivery.id,
+                'order_id': delivery.order.id,
+                'driver_name': delivery.driver.user.username if delivery.driver else 'Unassigned',
+                'vehicle_name': delivery.vehicle.name if delivery.vehicle else 'Unassigned',
+                'status': delivery.status,
+                'delivered_at': delivery.order.created_at
+            })
+        
         return Response({
             'sales': sales_list,
             'to_be_returned': to_be_returned,
             'top_customers': list(top_customers),
             'revenue_summary': revenue_summary,
+            'recent_deliveries': recent_deliveries_data
         })
+    
+    @action(detail=False, methods=['get'])
+    def export_delivered_orders(self, request):
+        """Export delivered orders to CSV"""
+        # Only admin can export data
+        if not hasattr(request.user, 'profile') or request.user.profile.role != 'admin':
+            raise PermissionDenied('Only admin can export data')
+        
+        # Get delivered orders
+        delivered_orders = Order.objects.filter(status='delivered').select_related(
+            'customer__user', 'product'
+        )
+        
+        # Prepare data for CSV
+        csv_data = []
+        csv_data.append([
+            'Order ID', 'Customer', 'Product', 'Quantity', 'Price', 'Total', 'Date'
+        ])
+        
+        for order in delivered_orders:
+            customer_name = f"{order.customer.first_name} {order.customer.last_name}".strip()
+            if not customer_name:
+                customer_name = order.customer.user.username
+            
+            csv_data.append([
+                order.id,
+                customer_name,
+                order.product.name if order.product else 'N/A',
+                order.quantity,
+                float(order.product.price) if order.product else 0,
+                float(order.product.price * order.quantity) if order.product else 0,
+                order.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            ])
+        
+        # Convert to CSV string
+        import csv
+        import io
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerows(csv_data)
+        csv_string = output.getvalue()
+        output.close()
+        
+        # Return CSV as response
+        from django.http import HttpResponse
+        response = HttpResponse(csv_string, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="delivered_orders.csv"'
+        return response
 
 
 class CancelledOrderViewSet(viewsets.ReadOnlyModelViewSet):
@@ -594,3 +644,151 @@ class MeView(views.APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+class DeploymentViewSet(viewsets.ModelViewSet):
+    queryset = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').prefetch_related('route__municipalities').all().order_by('-created_at')
+    serializer_class = DeploymentSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_permissions(self):
+        # Admin and staff can manage deployments; others can only view
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsRole('admin', 'staff')]
+        return [IsAuthenticated()]
+    
+    def create(self, request, *args, **kwargs):
+        try:
+            print(f"Deployment create request data: {request.data}")
+            return super().create(request, *args, **kwargs)
+        except Exception as e:
+            print(f"Error in DeploymentViewSet.create: {e}")
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
+    
+    def perform_create(self, serializer):
+        # Auto-set the created_at to now
+        try:
+            deployment = serializer.save()
+            print(f"Deployment created successfully: {deployment.id}")
+        except Exception as e:
+            print(f"Error in perform_create: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+        
+        # Create activity log
+        try:
+            from core.models import ActivityLog
+            user_profile = getattr(self.request.user, 'profile', None)
+            print(f"User profile for activity log: {user_profile}")
+            if user_profile:
+                meta_data = {
+                    "deployment_id": getattr(deployment, 'id', None),
+                    "stock": getattr(deployment, 'stock', None)
+                }
+                
+                # Safely add related object IDs
+                if hasattr(deployment, 'driver') and deployment.driver:
+                    meta_data["driver_id"] = getattr(deployment.driver, 'id', None)
+                if hasattr(deployment, 'vehicle') and deployment.vehicle:
+                    meta_data["vehicle_id"] = getattr(deployment.vehicle, 'id', None)
+                if hasattr(deployment, 'route') and deployment.route:
+                    meta_data["route_id"] = getattr(deployment.route, 'id', None)
+                if hasattr(deployment, 'product') and deployment.product:
+                    meta_data["product_id"] = getattr(deployment.product, 'id', None)
+                
+                print(f"Creating activity log with meta: {meta_data}")
+                activity_log = ActivityLog.objects.create(
+                    actor=user_profile,
+                    action="deployment_created",
+                    entity="deployment",
+                    meta=meta_data
+                )
+                print(f"Activity log created successfully: {activity_log.id}")
+            else:
+                print("No user profile found, skipping activity log creation")
+        except Exception as e:
+            print(f"Failed to create activity log: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def perform_update(self, serializer):
+        # Save the deployment
+        deployment = serializer.save()
+        
+        # Create activity log
+        try:
+            from core.models import ActivityLog
+            user_profile = getattr(self.request.user, 'profile', None)
+            if user_profile:
+                meta_data = {
+                    "deployment_id": getattr(deployment, 'id', None),
+                    "stock": getattr(deployment, 'stock', None)
+                }
+                
+                # Safely add related object IDs
+                if hasattr(deployment, 'driver') and deployment.driver:
+                    meta_data["driver_id"] = getattr(deployment.driver, 'id', None)
+                if hasattr(deployment, 'vehicle') and deployment.vehicle:
+                    meta_data["vehicle_id"] = getattr(deployment.vehicle, 'id', None)
+                if hasattr(deployment, 'route') and deployment.route:
+                    meta_data["route_id"] = getattr(deployment.route, 'id', None)
+                if hasattr(deployment, 'product') and deployment.product:
+                    meta_data["product_id"] = getattr(deployment.product, 'id', None)
+                
+                ActivityLog.objects.create(
+                    actor=user_profile,
+                    action="deployment_updated",
+                    entity="deployment",
+                    meta=meta_data
+                )
+        except Exception as e:
+            print(f"Failed to create activity log: {e}")
+    
+    def perform_destroy(self, instance):
+        # Create activity log before deleting
+        try:
+            from core.models import ActivityLog
+            user_profile = getattr(self.request.user, 'profile', None)
+            if user_profile:
+                meta_data = {
+                    "deployment_id": getattr(instance, 'id', None),
+                    "stock": getattr(instance, 'stock', None)
+                }
+                
+                # Safely add related object IDs
+                if hasattr(instance, 'driver') and instance.driver:
+                    meta_data["driver_id"] = getattr(instance.driver, 'id', None)
+                if hasattr(instance, 'vehicle') and instance.vehicle:
+                    meta_data["vehicle_id"] = getattr(instance.vehicle, 'id', None)
+                if hasattr(instance, 'route') and instance.route:
+                    meta_data["route_id"] = getattr(instance.route, 'id', None)
+                if hasattr(instance, 'product') and instance.product:
+                    meta_data["product_id"] = getattr(instance.product, 'id', None)
+                
+                ActivityLog.objects.create(
+                    actor=user_profile,
+                    action="deployment_deleted",
+                    entity="deployment",
+                    meta=meta_data
+                )
+        except Exception as e:
+            print(f"Failed to create activity log: {e}")
+        
+        # Delete the deployment
+        instance.delete()
+    
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            print(f"Error in DeploymentViewSet.list: {e}")
+            return Response({'error': str(e)}, status=500)
+    
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            return super().retrieve(request, *args, **kwargs)
+        except Exception as e:
+            print(f"Error in DeploymentViewSet.retrieve: {e}")
+            return Response({'error': str(e)}, status=500)

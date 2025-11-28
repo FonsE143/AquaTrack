@@ -10,8 +10,8 @@ class OrderCreationTests(APITestCase):
         self.customer_profile = Profile.objects.create(user=self.user, role='customer')
 
         # Create sample products
-        self.product1 = Product.objects.create(name='Water Bottle', sku='WB123', price=10.00, stock_full=100, stock_empty=0, threshold=10)
-        self.product2 = Product.objects.create(name='Water Can', sku='WC123', price=20.00, stock_full=50, stock_empty=10, threshold=5)
+        self.product1 = Product.objects.create(name='Water Bottle', sku='WB123', price=10.00, active=True)
+        self.product2 = Product.objects.create(name='Water Can', sku='WC123', price=20.00, active=True)
 
         # Authenticate the client
         self.client.login(username='testuser', password='testpass123')
@@ -34,11 +34,8 @@ class OrderCreationTests(APITestCase):
         self.product1.refresh_from_db()
         self.product2.refresh_from_db()
 
-        # Check stock updated correctly
-        self.assertEqual(self.product1.stock_full, 95)
-        self.assertEqual(self.product1.stock_empty, 0)
-        self.assertEqual(self.product2.stock_full, 48)
-        self.assertEqual(self.product2.stock_empty, 11)
+        # Stock tracking is now done via order-based calculations in the frontend
+        # No need to check stock values as they are no longer stored in the database
 
     def test_create_order_insufficient_stock(self):
         url = reverse('orders-list')
@@ -55,26 +52,5 @@ class OrderCreationTests(APITestCase):
         self.assertIn('Insufficient stock', response.data.get('non_field_errors', [''])[0] or '')
 
     def test_low_stock_notification_created(self):
-        # Reduce product stock near threshold
-        self.product1.stock_full = 11
-        self.product1.save()
-
-        url = reverse('orders-list')
-        data = {
-            "customer": self.customer_profile.id,
-            "status": "received",
-            "notes": "Trigger low stock notification",
-            "items": [
-                {"product": self.product1.id, "qty_full_out": 5, "qty_empty_in": 0}
-            ]
-        }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-        # Check notifications created for admin/staff (assuming they exist)
-        from core.models import Notification, Profile
-        admins_staff = Profile.objects.filter(role__in=['admin', 'staff'])
-        notifications = Notification.objects.filter(message__icontains=self.product1.name)
-        self.assertTrue(notifications.exists())
-        for recipient in admins_staff:
-            self.assertTrue(notifications.filter(user=recipient).exists())
+        # This test is no longer applicable as stock tracking is now done via order-based calculations
+        pass

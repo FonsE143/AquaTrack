@@ -1,120 +1,267 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { api } from '../api'
 import AppShell from '../components/AppShell'
 import { Sidebar } from '../components/Sidebar'
-import { api } from '../api/client'
 
-const sidebarMap = {
-  admin: [
-    { label: 'Dashboard', href: '/admin/dashboard' },
-    { label: 'Orders', href: '/admin/orders' },
-    { label: 'Order History', href: '/admin/order-history' },
-    { label: 'Inventory', href: '/admin/inventory' },
-    { label: 'Users', href: '/admin/users' },
-    { label: 'Activity Log', href: '/admin/activity', adminOnly: true },
-  ],
-  staff: [
-    { label: 'Dashboard', href: '/staff/dashboard' },
-    { label: 'Orders', href: '/staff/orders' },
-    { label: 'Order History', href: '/staff/order-history' },
-    { label: 'Inventory', href: '/staff/inventory' },
-  ],
-  driver: [
-    { label: 'Dashboard', href: '/driver/dashboard' },
-    { label: 'Deliveries', href: '/driver/deliveries' },
-  ],
-  customer: [
-    { label: 'Dashboard', href: '/customer/dashboard' },
-    { label: 'Order History', href: '/customer/order-history' },
-    { label: 'Notifications', href: '/customer/notifications' },
-  ],
-}
-
-export default function ProfilePage() {
+const Profile = () => {
   const queryClient = useQueryClient()
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => (await api.get('/me/')).data,
+  })
+
+  const [message, setMessage] = useState(null)
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
     email: '',
     phone: '',
-    address: '',
+    municipality: '',
+    barangay: '',
+    address_details: '', // For house number/street
   })
-  const [message, setMessage] = useState(null)
+  
+  const [municipalities, setMunicipalities] = useState([])
+  const [barangays, setBarangays] = useState([])
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['profile'],
-    queryFn: async () => {
-      console.log('Fetching profile data...');
-      const response = await api.get('/me/');
-      console.log('Profile data received:', response.data);
-      return response.data;
-    },
-  })
+  // Define sidebar items based on user role
+  const sidebarItems = useMemo(() => {
+    if (!data) return []
+    
+    switch (data.role) {
+      case 'admin':
+        return [
+          { label: 'Dashboard', href: '/admin/dashboard' },
+          { label: 'Route', href: '/admin/route' },
+          { label: 'Deployment', href: '/admin/deployment' },
+          { label: 'Employees', href: '/admin/employees' },
+          { label: 'Activity Logs', href: '/admin/activity-logs' },
+          { label: 'Profile', href: '/profile', active: true },
+        ]
+      case 'staff':
+        return [
+          { label: 'Dashboard', href: '/staff/dashboard' },
+          { label: 'Orders', href: '/staff/orders' },
+          { label: 'Deliveries', href: '/staff/deliveries' },
+          { label: 'Customers', href: '/staff/customers' },
+          { label: 'Profile', href: '/profile', active: true },
+        ]
+      case 'driver':
+        return [
+          { label: 'Dashboard', href: '/driver/dashboard' },
+          { label: 'Deliveries', href: '/driver/deliveries' },
+          { label: 'Activity Log', href: '/driver/activity-log' },
+          { label: 'Profile', href: '/profile', active: true },
+        ]
+      case 'customer':
+      default:
+        return [
+          { label: 'Dashboard', href: '/customer/dashboard' },
+          { label: 'Orders', href: '/customer/orders' },
+          { label: 'Deliveries', href: '/customer/deliveries' },
+          { label: 'Order History', href: '/customer/order-history' },
+          { label: 'Profile', href: '/profile', active: true },
+        ]
+    }
+  }, [data])
+
+  // Fetch municipalities
+  useEffect(() => {
+    const fetchMunicipalities = async () => {
+      try {
+        const response = await api.get('/municipalities/')
+        // Handle both paginated and non-paginated responses
+        const data = Array.isArray(response.data) ? response.data : 
+                    (response.data.results && Array.isArray(response.data.results) ? response.data.results : [])
+        console.log('Municipalities fetched:', data);
+        setMunicipalities(data)
+      } catch (err) {
+        console.error('Failed to fetch municipalities:', err)
+        setMunicipalities([]) // Set to empty array on error
+      }
+    }
+    fetchMunicipalities()
+  }, [])
+
+  // Fetch barangays when municipality changes (for user interactions)
+  useEffect(() => {
+    const fetchBarangays = async () => {
+      if (form.municipality) {
+        try {
+          console.log('Fetching barangays for municipality:', form.municipality);
+          const response = await api.get(`/barangays/?municipality=${form.municipality}`)
+          // Handle both paginated and non-paginated responses
+          const data = Array.isArray(response.data) ? response.data : 
+                      (response.data.results && Array.isArray(response.data.results) ? response.data.results : [])
+          console.log('Received barangays:', data);
+          setBarangays(data)
+          // Reset barangay selection when municipality changes
+          setForm(prev => ({ ...prev, barangay: '' }))
+        } catch (err) {
+          console.error('Failed to fetch barangays:', err)
+          setBarangays([]) // Set to empty array on error
+          setForm(prev => ({ ...prev, barangay: '' }))
+        }
+      } else {
+        setBarangays([])
+        setForm(prev => ({ ...prev, barangay: '' }))
+      }
+    }
+    fetchBarangays()
+  }, [form.municipality])
 
   // Initialize form when data is loaded
   useEffect(() => {
     if (data) {
       console.log('Profile data received:', data);
-      console.log('Data type:', typeof data);
-      console.log('Data keys:', Object.keys(data));
       const newForm = {
         first_name: data.first_name || '',
         last_name: data.last_name || '',
         email: data.email || '',
         phone: data.phone || '',
-        address: data.address || '',
-      };
-      console.log('Setting form to:', newForm);
-      setForm(newForm);
+        municipality: data.address?.municipality ? String(data.address.municipality) : '',
+        barangay: data.address?.barangay ? String(data.address.barangay) : '',
+        address_details: data.address?.full_address || '',
+      }
+      console.log('Form initialized with:', newForm);
+      setForm(newForm)
+      
+      // Show a message if no address is set
+      if (!data.address?.full_address) {
+        setMessage({ type: 'info', text: 'Please set your complete address below.' })
+      }
+      
+      // If there's a municipality in the loaded data, fetch barangays for it
+      if (data.address?.municipality) {
+        console.log('Fetching barangays for municipality:', data.address.municipality);
+        // We need to manually trigger the barangay fetch since useEffect won't trigger
+        // when we set the form values directly
+        const fetchBarangaysForMunicipality = async () => {
+          try {
+            const response = await api.get(`/barangays/?municipality=${data.address.municipality}`)
+            // Handle both paginated and non-paginated responses
+            const barangayData = Array.isArray(response.data) ? response.data : 
+                                (response.data.results && Array.isArray(response.data.results) ? response.data.results : [])
+            console.log('Received barangays:', barangayData);
+            setBarangays(barangayData)
+            
+            // Check if the current barangay selection is still valid
+            const currentBarangayValid = barangayData.some(b => b.id.toString() === data.address?.barangay?.toString());
+            console.log('Current barangay valid:', currentBarangayValid, 'Current barangay:', data.address?.barangay);
+            if (!currentBarangayValid && data.address?.barangay) {
+              // If the barangay is not valid, reset it
+              console.log('Resetting barangay selection');
+              setForm(prev => ({ ...prev, barangay: '' }))
+            }
+          } catch (err) {
+            console.error('Failed to fetch barangays:', err)
+            setBarangays([])
+            setForm(prev => ({ ...prev, barangay: '' }))
+          }
+        }
+        
+        fetchBarangaysForMunicipality();
+      }
     }
   }, [data])
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    console.log('Form field changed:', name, value, typeof value);
+    setForm((prev) => ({ ...prev, [name]: value }))
+  }
 
   const mutation = useMutation({
     mutationFn: async (payload) => (await api.patch('/me/', payload)).data,
     onSuccess: (updated) => {
+      console.log('Profile update response:', updated);
       queryClient.setQueryData(['profile'], updated)
       setForm({
         first_name: updated.first_name || '',
         last_name: updated.last_name || '',
         email: updated.email || '',
         phone: updated.phone || '',
-        address: updated.address || '',
+        municipality: updated.address?.municipality ? String(updated.address.municipality) : '',
+        barangay: updated.address?.barangay ? String(updated.address.barangay) : '',
+        address_details: updated.address?.full_address || '',
       })
-      setMessage({ type: 'success', text: 'Profile updated successfully.' })
+      setMessage({ type: 'success', text: 'Profile and address updated successfully.' })
     },
     onError: (err) => {
-      const msg =
-        err.response?.data?.detail ||
-        err.response?.data?.error ||
-        'Failed to update profile.'
-      setMessage({ type: 'error', text: msg })
+      console.error('Profile update error:', err);
+      let msg = 'Failed to update profile.';
+      
+      // Handle different types of error responses
+      if (err.response?.data) {
+        // Check for DRF validation errors
+        if (err.response.data.detail) {
+          msg = err.response.data.detail;
+        } else if (err.response.data.error) {
+          msg = err.response.data.error;
+        } else if (typeof err.response.data === 'string') {
+          msg = err.response.data;
+        } else if (typeof err.response.data === 'object') {
+          // Handle field-specific errors
+          const errorFields = Object.keys(err.response.data);
+          if (errorFields.length > 0) {
+            const firstField = errorFields[0];
+            const fieldErrors = err.response.data[firstField];
+            if (Array.isArray(fieldErrors) && fieldErrors.length > 0) {
+              msg = `${firstField}: ${fieldErrors[0]}`;
+            } else {
+              msg = `${firstField}: ${fieldErrors}`;
+            }
+          }
+        }
+      } else if (err.message) {
+        msg = err.message;
+      }
+      
+      setMessage({ type: 'error', text: msg });
     },
   })
 
-  const sidebarItems = useMemo(() => {
-    const role = data?.role || 'customer'
-    return sidebarMap[role] || sidebarMap.customer
-  }, [data?.role])
-
-  const handleChange = (e) => {
-    const { name, value } = e.target
-    setForm((prev) => {
-      const updated = { ...prev, [name]: value };
-      console.log('Form updated to:', updated);
-      return updated;
-    });
-  }
-
   const handleSubmit = (e) => {
     e.preventDefault()
-    setMessage(null)
-    mutation.mutate(form)
+    
+    // Validate address fields
+    // If any address field is filled, all must be filled
+    if (form.municipality || form.barangay || form.address_details) {
+      if (!form.municipality || form.municipality === '') {
+        setMessage({ type: 'error', text: 'Please select a municipality.' })
+        return
+      }
+      if (!form.barangay || form.barangay === '') {
+        setMessage({ type: 'error', text: 'Please select a barangay.' })
+        return
+      }
+      if (!form.address_details.trim()) {
+        setMessage({ type: 'error', text: 'House Number / Lot Number / Street is required.' })
+        return
+      }
+    }
+    
+    // Prepare the data to send
+    const payload = {
+      first_name: form.first_name,
+      last_name: form.last_name,
+      email: form.email,
+      phone: form.phone,
+      municipality: form.municipality ? Number(form.municipality) : undefined,
+      barangay: form.barangay ? Number(form.barangay) : undefined,
+      address_details: form.address_details,
+    }
+    console.log('Sending profile update payload:', payload);
+    mutation.mutate(payload)
   }
 
-  const role = data?.role || 'customer'
+  if (isLoading) return <div>Loading...</div>
+  if (isError) return <div>Error: {error.message}</div>
 
   return (
-    <AppShell role={role} sidebar={<Sidebar items={sidebarItems} />}>
+    <AppShell role={data?.role || 'customer'} sidebar={<Sidebar items={sidebarItems} />}>
       <div className="container-fluid">
         <div className="row">
           <div className="col-12">
@@ -141,113 +288,122 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {isLoading && (
-              <div className="d-flex align-items-center justify-content-center py-5">
-                {console.log('Rendering loading state')}
-                <div className="spinner-border text-success" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <div className="alert alert-danger" role="alert">
-                Failed to load profile information. Error: {error.message || 'Unknown error'}
-                {console.log('Profile loading error:', error)}
-              </div>
-            )}
-
-            {!isLoading && data && (
-              <div className="card border-0 shadow-sm">
-                {console.log('Rendering profile form. Data:', data, 'isLoading:', isLoading)}
-                <div className="card-body">
-                  <form onSubmit={handleSubmit}>
-                    <div className="row g-3">
-                      <div className="col-md-6">
-                        <label className="form-label fw-medium">First Name</label>
-                        <input
-                          type="text"
-                          name="first_name"
-                          value={form.first_name}
-                          onChange={handleChange}
-                          className="form-control"
-                        />
-                        {console.log('Rendering first_name:', form.first_name, 'Type:', typeof form.first_name)}
-                      </div>
-                      <div className="col-md-6">
-                        <label className="form-label fw-medium">Last Name</label>
-                        <input
-                          type="text"
-                          name="last_name"
-                          value={form.last_name}
-                          onChange={handleChange}
-                          className="form-control"
-                        />
-                        {console.log('Rendering last_name:', form.last_name, 'Type:', typeof form.last_name)}
-                      </div>
-                      <div className="col-md-6">
-                        <label className="form-label fw-medium">Email</label>
-                        <input
-                          type="email"
-                          name="email"
-                          value={form.email}
-                          onChange={handleChange}
-                          className="form-control"
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <label className="form-label fw-medium">Contact Number</label>
-                        <input
-                          type="text"
-                          name="phone"
-                          value={form.phone}
-                          onChange={handleChange}
-                          className="form-control"
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <label className="form-label fw-medium">Role</label>
-                        <input
-                          type="text"
-                          value={role}
-                          disabled
-                          className="form-control bg-light"
-                        />
-                      </div>
-                      <div className="col-12">
-                        <label className="form-label fw-medium">Address</label>
-                        <textarea
-                          name="address"
-                          rows="3"
-                          value={form.address}
-                          onChange={handleChange}
-                          className="form-control"
-                        />
-                      </div>
+            <div className="card border-0 shadow-sm">
+              <div className="card-body">
+                <form onSubmit={handleSubmit}>
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label fw-medium">First Name</label>
+                      <input
+                        type="text"
+                        name="first_name"
+                        value={form.first_name}
+                        onChange={handleChange}
+                        className="form-control"
+                      />
                     </div>
-                    <div className="d-flex justify-content-end mt-4">
-                      <button
-                        type="submit"
-                        disabled={mutation.isLoading}
-                        className="btn btn-success px-4"
+                    <div className="col-md-6">
+                      <label className="form-label fw-medium">Last Name</label>
+                      <input
+                        type="text"
+                        name="last_name"
+                        value={form.last_name}
+                        onChange={handleChange}
+                        className="form-control"
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-medium">Email</label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={form.email}
+                        onChange={handleChange}
+                        className="form-control"
+                        readOnly
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-medium">Phone</label>
+                      <input
+                        type="text"
+                        name="phone"
+                        value={form.phone}
+                        onChange={handleChange}
+                        className="form-control"
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-medium">Municipality</label>
+                      <select
+                        name="municipality"
+                        value={form.municipality}
+                        onChange={handleChange}
+                        className="form-control"
                       >
-                        {mutation.isLoading ? (
-                          <>
-                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            Saving...
-                          </>
-                        ) : (
-                          'Save Changes'
-                        )}
-                      </button>
+                        <option value="">Select Municipality</option>
+                        {Array.isArray(municipalities) && municipalities.map((municipality) => (
+                          <option key={municipality.id} value={municipality.id}>
+                            {municipality.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  </form>
-                </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-medium">Barangay</label>
+                      <select
+                        name="barangay"
+                        value={form.barangay}
+                        onChange={handleChange}
+                        className="form-control"
+                        disabled={!form.municipality}
+                      >
+                        <option value="">Select Barangay</option>
+                        {Array.isArray(barangays) && barangays.map((barangay) => (
+                          <option key={barangay.id} value={barangay.id}>
+                            {barangay.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-12">
+                      <label className="form-label fw-medium">House Number / Lot Number / Street *</label>
+                      <input
+                        type="text"
+                        name="address_details"
+                        value={form.address_details}
+                        onChange={handleChange}
+                        className="form-control"
+                        placeholder="Enter your house number, lot number, or street address"
+                        required
+                      />
+                      <div className="form-text">This field is required to set your complete address.</div>
+                    </div>
+                  </div>
+                  <div className="d-flex justify-content-end mt-4">
+                    <button
+                      type="submit"
+                      disabled={mutation.isLoading}
+                      className="btn btn-success px-4"
+                    >
+                      {mutation.isLoading ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Changes'
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
     </AppShell>
   )
 }
+
+export default Profile

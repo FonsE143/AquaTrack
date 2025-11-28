@@ -89,7 +89,7 @@ export default function AppShell({ role='admin', children, sidebar }) {
 
       <div className="d-flex">
         {/* Desktop sidebar - fixed position */}
-        <aside className="d-none d-md-block position-fixed bg-white border-end" style={{ width: 260, top: 60, left: 0, bottom: 0, zIndex: 1020 }}>
+        <aside className="d-none d-md-block position-fixed bg-white" style={{ width: 260, top: 60, left: 0, bottom: 0, zIndex: 1020 }}>
           <div className="h-100" style={{ padding: '1rem', overflowY: 'auto' }}>
             {sidebarWithOnNavigate}
           </div>

@@ -21,7 +21,7 @@ def export_staff(request):
 def export_products(request):
     resp = HttpResponse(content_type='text/csv')
     resp['Content-Disposition'] = 'attachment; filename=products.csv'
-    w = csv.writer(resp); w.writerow(['name','sku','price','stock_full','stock_empty','threshold'])
+    w = csv.writer(resp); w.writerow(['name','sku','price'])
     for p in Product.objects.all():
-        w.writerow([p.name,p.sku,p.price,p.stock_full,p.stock_empty,p.threshold])
+        w.writerow([p.name,p.sku,p.price])
     return resp

@@ -1,20 +1,33 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
-from core.models import Profile
+from core.models import Profile, Municipality, Barangay, Address
 
 User = get_user_model()
 
-
-def ensure_profile(user, role, first_name='', last_name='', phone='', address=''):
+def ensure_profile(user, role, first_name='', last_name='', phone='', address_street=''):
     profile, _ = Profile.objects.get_or_create(user=user)
     profile.role = role
     profile.first_name = first_name
     profile.last_name = last_name
     profile.email = user.email
     profile.phone = phone
-    profile.address = address
+    
+    # Create a default address if needed
+    if address_street:
+        # Create default municipality and barangay if they don't exist
+        municipality, _ = Municipality.objects.get_or_create(name='Default Municipality')
+        barangay, _ = Barangay.objects.get_or_create(
+            municipality=municipality,
+            name='Default Barangay',
+            defaults={'street_house_number': address_street}
+        )
+        address, _ = Address.objects.get_or_create(
+            barangay=barangay,
+            defaults={'full_address': address_street}
+        )
+        profile.address = address
+    
     profile.save()
-
 
 class Command(BaseCommand):
     help = 'Create default users (admin, staff, driver, customer) if they do not exist'

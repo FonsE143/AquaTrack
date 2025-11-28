@@ -8,19 +8,17 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import AdminDashboard from './pages/admin/Dashboard'
-import AdminOrders from './pages/admin/Orders'
-import AdminInventory from './pages/admin/Inventory'
-import AdminUsers from './pages/admin/Users'
-import AdminActivity from './pages/admin/Activity'
+import AdminDeployment from './pages/admin/Deployment'
+import AdminRoute from './pages/admin/Route'
+import AdminEmployees from './pages/admin/Employees'
+import AdminActivityLogs from './pages/admin/ActivityLogs'
 import StaffDashboard from './pages/staff/Dashboard'
-import StaffOrders from './pages/staff/Orders'
-import StaffInventory from './pages/staff/Inventory'
+import StaffDeployment from './pages/staff/Deployment'
+import StaffActivityLogs from './pages/staff/ActivityLogs'
 import CustomerDashboard from './pages/customer/Dashboard'
-import CustomerNotifications from './pages/customer/Notifications'
-import ProfilePage from './pages/Profile'
 import DriverDashboard from './pages/driver/Dashboard'
 import DriverDeliveries from './pages/driver/Deliveries'
-import OrderHistoryPage from './pages/OrderHistory'
+import ProfilePage from './pages/Profile'
 import { api } from './api/client'
 
 const qc = new QueryClient({
@@ -95,20 +93,16 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/register" element={<Register />} />
           {/* Admin */}
           <Route path="/admin/dashboard" element={<RequireAuth allowedRoles={['admin']}><AdminDashboard /></RequireAuth>} />
-          <Route path="/admin/orders" element={<RequireAuth allowedRoles={['admin']}><AdminOrders /></RequireAuth>} />
-          <Route path="/admin/order-history" element={<RequireAuth allowedRoles={['admin']}><OrderHistoryPage /></RequireAuth>} />
-          <Route path="/admin/inventory" element={<RequireAuth allowedRoles={['admin']}><AdminInventory /></RequireAuth>} />
-          <Route path="/admin/users" element={<RequireAuth allowedRoles={['admin']}><AdminUsers /></RequireAuth>} />
-          <Route path="/admin/activity" element={<RequireAuth allowedRoles={['admin']}><AdminActivity /></RequireAuth>} />
+          <Route path="/admin/route" element={<RequireAuth allowedRoles={['admin']}><AdminRoute /></RequireAuth>} />
+          <Route path="/admin/deployment" element={<RequireAuth allowedRoles={['admin']}><AdminDeployment /></RequireAuth>} />
+          <Route path="/admin/employees" element={<RequireAuth allowedRoles={['admin']}><AdminEmployees /></RequireAuth>} />
+          <Route path="/admin/activity-logs" element={<RequireAuth allowedRoles={['admin']}><AdminActivityLogs /></RequireAuth>} />
           {/* Staff */}
           <Route path="/staff/dashboard" element={<RequireAuth allowedRoles={['staff', 'admin']}><StaffDashboard /></RequireAuth>} />
-          <Route path="/staff/orders" element={<RequireAuth allowedRoles={['staff', 'admin']}><StaffOrders /></RequireAuth>} />
-          <Route path="/staff/order-history" element={<RequireAuth allowedRoles={['staff', 'admin']}><OrderHistoryPage /></RequireAuth>} />
-          <Route path="/staff/inventory" element={<RequireAuth allowedRoles={['staff', 'admin']}><StaffInventory /></RequireAuth>} />
+          <Route path="/staff/deployment" element={<RequireAuth allowedRoles={['staff', 'admin']}><StaffDeployment /></RequireAuth>} />
+          <Route path="/staff/activity-logs" element={<RequireAuth allowedRoles={['staff', 'admin']}><StaffActivityLogs /></RequireAuth>} />
           {/* Customer */}
           <Route path="/customer/dashboard" element={<RequireAuth allowedRoles={['customer']}><CustomerDashboard /></RequireAuth>} />
-          <Route path="/customer/order-history" element={<RequireAuth allowedRoles={['customer']}><OrderHistoryPage /></RequireAuth>} />
-          <Route path="/customer/notifications" element={<RequireAuth allowedRoles={['customer']}><CustomerNotifications /></RequireAuth>} />
           {/* Driver */}
           <Route path="/driver/dashboard" element={<RequireAuth allowedRoles={['driver']}><DriverDashboard /></RequireAuth>} />
           <Route path="/driver/deliveries" element={<RequireAuth allowedRoles={['driver']}><DriverDeliveries /></RequireAuth>} />

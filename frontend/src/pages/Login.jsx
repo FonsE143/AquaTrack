@@ -4,7 +4,7 @@ import { Droplet } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -20,7 +20,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      const { data } = await axios.post(`${API_BASE_URL}/api/auth/token/`, {
+      const { data } = await axios.post(`${API_BASE_URL.replace('/api', '')}/api/auth/token/`, {
         username: username,
         password,
       });
@@ -29,10 +29,10 @@ export default function Login() {
         localStorage.setItem('refreshToken', data.refresh);
       }
 
-      const me = await axios.get(`${API_BASE_URL}/api/me/`, {
-        headers: { Authorization: `Bearer ${data.access}` },
-      });
-
+      // Use the api client which has the interceptor to get user info
+      const { api } = await import('../api/client');
+      const me = await api.get('/me/');
+      
       const role = me.data.role;
       const map = {
         admin: '/admin/dashboard',

@@ -58,8 +58,8 @@ def run():
     ensure_profile(driver, 'driver', 'D', 'Driver', '0917-333-3333', 'Driver HQ')
 
     # Products
-    p1, _ = Product.objects.get_or_create(sku='R5L', defaults={'name': 'Refill 5L', 'price': 30, 'stock_full': 100, 'stock_empty': 20, 'threshold': 20})
-    p2, _ = Product.objects.get_or_create(sku='R20L', defaults={'name': 'Refill 20L', 'price': 60, 'stock_full': 80, 'stock_empty': 40, 'threshold': 15})
+    p1, _ = Product.objects.get_or_create(sku='R5L', defaults={'name': 'Refill 5L', 'price': 30, 'active': True})
+    p2, _ = Product.objects.get_or_create(sku='R20L', defaults={'name': 'Refill 20L', 'price': 60, 'active': True})
 
     # Create a sample order if none exist
     if not Order.objects.exists():

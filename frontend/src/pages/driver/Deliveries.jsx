@@ -1,363 +1,260 @@
-import React, { useState } from 'react'
+// src/pages/driver/Deliveries.jsx
 import AppShell from '../../components/AppShell'
 import { Sidebar } from '../../components/Sidebar'
+import { Package, MapPin, Play, CheckCircle, X } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-// Modal component for container return
-function ContainerReturnModal({ delivery, onClose, onSubmit }) {
-  const [returnedContainers, setReturnedContainers] = useState({})
-  
-  const orderItems = delivery.order_items || []
-  
-  const handleInputChange = (itemId, value) => {
-    setReturnedContainers(prev => ({
-      ...prev,
-      [itemId]: parseInt(value) || 0
-    }))
-  }
-  
-  const handleSubmit = () => {
-    onSubmit(returnedContainers)
-    onClose()
-  }
-  
-  return (
-    <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="modal-dialog modal-dialog-centered">
-        <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title">Return Containers</h5>
-            <button type="button" className="btn-close" onClick={onClose}></button>
-          </div>
-          <div className="modal-body">
-            <p>Please enter the number of containers returned for each item:</p>
-            {orderItems.map(item => (
-              <div key={item.id} className="mb-3">
-                <label className="form-label">
-                  {item.product_name || 'Unknown Product'} (Ordered: {item.qty_full_out || 0})
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max={item.qty_full_out || 0}
-                  className="form-control"
-                  value={returnedContainers[item.id] !== undefined ? returnedContainers[item.id] : (item.qty_empty_in || 0)}
-                  onChange={(e) => handleInputChange(item.id, e.target.value)}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="button" className="btn btn-primary" onClick={handleSubmit}>
-              Confirm
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default function DriverDeliveries(){
+export default function DriverDeliveries() {
   const items = [
     { label: 'Dashboard', href: '/driver/dashboard' },
     { label: 'Deliveries', href: '/driver/deliveries', active: true },
   ]
 
   const queryClient = useQueryClient()
-  const [showReturnModal, setShowReturnModal] = useState(false)
-  const [selectedDelivery, setSelectedDelivery] = useState(null)
 
-  // Get driver's deliveries
-  const { data: deliveries, isLoading, error } = useQuery({
-    queryKey: ['deliveries'],
-    queryFn: async () => {
-      const response = await api.get('/deliveries/')
-      // Handle both paginated and non-paginated responses
-      let deliveriesData;
-      if (response.data.results) {
-        deliveriesData = Array.isArray(response.data.results) ? response.data.results : []
-      } else {
-        deliveriesData = Array.isArray(response.data) ? response.data : []
-      }
-      
-      // Log raw response for debugging
-      console.log('Raw deliveries response:', response.data);
-      console.log('Processed deliveries data:', deliveriesData);
-      
-      // Filter to show only deliveries that are assigned to this driver and are not yet completed
-      // Drivers should see all deliveries assigned to them where the order is not in a final state
-      // Final states are: delivered (with completed delivery) and cancelled
-      return deliveriesData.filter(d => {
-        // Check if delivery and order exist
-        if (!d || !d.order) {
-          return false;
-        }
-        
-        // Get statuses - handle both nested object and flat structure
-        const deliveryStatus = d.status;
-        const orderStatus = d.order_status || 'unknown';
-        
-        // Log for debugging
-        console.log(`Delivery ${d.id}: deliveryStatus=${deliveryStatus}, orderStatus=${orderStatus}`);
-        
-        // Show deliveries that are assigned to this driver and the order is not in a final state
-        // Final state is when order is 'delivered' and delivery is 'completed', or order is 'cancelled'
-        const showDelivery = !(
-          (orderStatus === 'delivered' && deliveryStatus === 'completed') || 
-          orderStatus === 'cancelled'
-        );
-        
-        console.log(`Show delivery ${d.id}: ${showDelivery}`);
-        return showDelivery;
-      });
-    }
+  // Fetch deliveries for current driver
+  const { data: deliveries, isLoading } = useQuery({
+    queryKey: ['my-deliveries'],
+    queryFn: async () => (await api.get('/deliveries/my-deliveries/')).data.results || (await api.get('/deliveries/my-deliveries/')).data || [],
   })
 
-  const markDelivered = useMutation({
-    mutationFn: async ({ orderId, returnedContainers }) => {
-      // First update the returned container counts using our new endpoint
-      if (returnedContainers) {
-        // Prepare the item updates
-        const itemUpdates = Object.entries(returnedContainers)
-          .map(([itemId, qty]) => ({
-            id: parseInt(itemId),
-            qty_empty_in: qty
-          }));
-        
-        // Only update if we have items to update
-        if (itemUpdates.length > 0) {
-          await api.patch(`/orders/${orderId}/update_item/`, {
-            items: itemUpdates
-          });
-        }
-      }
-      
-      // Use the order process endpoint to mark delivered; server will create ActivityLog
-      return api.post(`/orders/${orderId}/process/`, { status: 'delivered' })
+  // Mutation for updating delivery status
+  const updateDeliveryStatus = useMutation({
+    mutationFn: async ({ deliveryId, status }) => {
+      return api.patch(`/deliveries/${deliveryId}/`, { status })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['deliveries'])
-      queryClient.invalidateQueries(['orders'])
-      queryClient.invalidateQueries(['driver-delivered-orders'])
-      // Invalidate all activity log pages
-      queryClient.invalidateQueries(['activity'])
+      queryClient.invalidateQueries(['my-deliveries'])
+      alert('Delivery status updated successfully!')
     },
-    onError: (err) => {
-      console.error('Failed to mark delivered', err)
-      alert('Failed to update delivery status. The order may already be in a final state.')
+    onError: (error) => {
+      alert('Failed to update delivery status: ' + (error.response?.data?.detail || error.message))
     }
   })
 
-  const markCancelled = useMutation({
-    mutationFn: async (orderId) => {
-      // Use the order process endpoint to mark cancelled
-      return api.post(`/orders/${orderId}/process/`, { status: 'cancelled' })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['deliveries'])
-      queryClient.invalidateQueries(['orders'])
-      queryClient.invalidateQueries(['driver-delivered-orders'])
-      // Invalidate all activity log pages
-      queryClient.invalidateQueries(['activity'])
-    },
-    onError: (err) => {
-      console.error('Failed to mark cancelled', err)
-      alert('Failed to cancel order. Please try again.')
-    }
-  })
+  // Get deliveries by status
+  const pendingDeliveries = Array.isArray(deliveries) 
+    ? deliveries.filter(d => d.status === 'assigned')
+    : []
 
-  const handleDeliveredClick = (delivery) => {
-    setSelectedDelivery(delivery)
-    setShowReturnModal(true)
+  const inRouteDeliveries = Array.isArray(deliveries) 
+    ? deliveries.filter(d => d.status === 'in_route')
+    : []
+
+  const completedDeliveries = Array.isArray(deliveries) 
+    ? deliveries.filter(d => d.status === 'delivered')
+    : []
+
+  // Handle start delivery
+  const handleStartDelivery = (deliveryId) => {
+    if (confirm('Start delivery for this order?')) {
+      updateDeliveryStatus.mutate({ deliveryId, status: 'in_route' })
+    }
   }
 
-  const handleContainerReturnSubmit = (returnedContainers) => {
-    const orderId = selectedDelivery.order_id || selectedDelivery.order?.id || selectedDelivery.order
-    
-    // Calculate total ordered and returned containers
-    const orderItems = selectedDelivery.order_items || []
-    const totalOrderedContainers = orderItems.reduce((sum, item) => sum + (item.qty_full_out || 0), 0)
-    const totalReturnedContainers = Object.values(returnedContainers).reduce((sum, qty) => sum + (qty || 0), 0)
-    
-    // Check if all containers have been returned
-    if (totalReturnedContainers < totalOrderedContainers) {
-      const missingContainers = totalOrderedContainers - totalReturnedContainers
-      const confirmMsg = `Customer has returned ${totalReturnedContainers} containers out of ${totalOrderedContainers} ordered. ${missingContainers} containers are still outstanding. Do you want to proceed with marking this order as delivered and notify the customer about the missing containers?`
-      
-      if (window.confirm(confirmMsg)) {
-        // Proceed with marking as delivered
-        markDelivered.mutate({ orderId, returnedContainers })
-      }
-    } else {
-      // All containers returned, proceed normally
-      markDelivered.mutate({ orderId, returnedContainers })
+  // Handle complete delivery
+  const handleCompleteDelivery = (deliveryId) => {
+    if (confirm('Mark this delivery as completed?')) {
+      updateDeliveryStatus.mutate({ deliveryId, status: 'delivered' })
+    }
+  }
+
+  // Handle cancel delivery
+  const handleCancelDelivery = (deliveryId) => {
+    if (confirm('Cancel this delivery?')) {
+      updateDeliveryStatus.mutate({ deliveryId, status: 'cancelled' })
     }
   }
 
   return (
     <AppShell role="driver" sidebar={<Sidebar items={items} />}>
-      <div className="container py-4">
-        <h2 className="mb-3">My Deliveries</h2>
+      <div className="container-fluid">
+        {/* Header */}
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+          <div>
+            <div className="d-flex align-items-center gap-2">
+              <Package className="text-primary" size={24} />
+              <h1 className="h3 m-0">My Deliveries</h1>
+            </div>
+            <p className="text-muted mb-0">Checklist of customer orders within your route</p>
+          </div>
+        </div>
 
-        {isLoading && <div className="alert alert-secondary">Loading deliveries...</div>}
-        {error && <div className="alert alert-danger">Could not load deliveries</div>}
-
-        {!isLoading && deliveries && deliveries.length === 0 && !error && (
-          <div className="alert alert-info">No deliveries found.</div>
-        )}
-
-        {/* Desktop Table View */}
-        <div className="card border-0 shadow-sm d-none d-md-block">
-          <div className="table-responsive">
-            <table className="table table-hover mb-0">
-              <thead className="table-light">
-                <tr>
-                  <th>Order ID</th>
-                  <th>Customer</th>
-                  <th>Address</th>
-                  <th>Phone</th>
-                  <th>Items</th>
-                  <th>Amount</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {deliveries && Array.isArray(deliveries) && deliveries.map(d => (
-                  <tr key={d.id}>
-                    <td className="fw-medium">#{d.order_id || d.order?.id || d.order}</td>
-                    <td>
-                      {d.customer_first_name || d.customer_last_name ? 
-                        `${d.customer_first_name || ''} ${d.customer_last_name || ''}`.trim() : 
-                        'Unknown Customer'}
-                    </td>
-                    <td>{d.customer_address || 'No address provided'}</td>
-                    <td>{d.customer_phone || 'No phone provided'}</td>
-                    <td>
-                      {d.order_items?.map((item, idx) => (
-                        <div key={idx} className="small">
-                          <div>{item.product_name || 'Unknown Product'}: {item.qty_full_out || 0} full</div>
-                          <div className="mt-1">
-                            <span className="small">Returned: {item.qty_empty_in || 0}</span>
+        {isLoading ? (
+          <div className="d-flex align-items-center justify-content-center py-5">
+            <div className="spinner-border text-success" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        ) : (
+          <div className="row g-4">
+            {/* Pending Deliveries */}
+            <div className="col-lg-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-header bg-white border-0 py-3">
+                  <div className="d-flex align-items-center gap-2">
+                    <div className="rounded-circle bg-warning bg-opacity-10 p-2 text-warning">
+                      <Package size={20} />
+                    </div>
+                    <h5 className="mb-0">Pending ({pendingDeliveries.length})</h5>
+                  </div>
+                </div>
+                <div className="card-body p-0">
+                  {pendingDeliveries.length > 0 ? (
+                    <div className="list-group list-group-flush">
+                      {pendingDeliveries.map(delivery => (
+                        <div key={delivery.id} className="list-group-item border-0 px-3 py-3">
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                              <div className="fw-medium">Order #{delivery.order_id}</div>
+                              <div className="small text-muted">
+                                {delivery.customer_first_name} {delivery.customer_last_name}
+                              </div>
+                              <div className="small text-muted">
+                                {delivery.customer_address}
+                              </div>
+                            </div>
+                            <span className="badge bg-warning-subtle text-warning-emphasis">
+                              Pending
+                            </span>
+                          </div>
+                          <div className="small mb-2">
+                            <strong>{delivery.order_product_name}</strong> × {delivery.order_quantity}
+                          </div>
+                          <div className="d-flex gap-2">
+                            <button 
+                              className="btn btn-sm btn-success d-flex align-items-center gap-1"
+                              onClick={() => handleStartDelivery(delivery.id)}
+                              disabled={updateDeliveryStatus.isLoading}
+                            >
+                              <Play size={14} />
+                              Start
+                            </button>
                           </div>
                         </div>
                       ))}
-                    </td>
-                    <td className="fw-medium">₱{parseFloat(d.order_total_amount || 0).toFixed(2)}</td>
-                    <td>
-                      <div className="d-flex gap-2">
-                        <button
-                          className="btn btn-sm btn-success"
-                          onClick={() => handleDeliveredClick(d)}
-                          disabled={markDelivered.isLoading}
-                        >
-                          {markDelivered.isLoading ? 'Updating...' : 'Delivered'}
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => {
-                            if (window.confirm('Are you sure you want to cancel this order?')) {
-                              markCancelled.mutate(d.order_id || d.order?.id || d.order)
-                            }
-                          }}
-                          disabled={markCancelled.isLoading}
-                        >
-                          {markCancelled.isLoading ? 'Cancelling...' : 'Cancel'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Mobile Card View */}
-        <div className="d-md-none">
-          <div className="row">
-            {deliveries && Array.isArray(deliveries) && deliveries.map(d => (
-              <div key={d.id} className="col-12 col-sm-6 col-lg-4 mb-3">
-                <div className="card shadow-sm h-100">
-                  <div className="card-body">
-                    <div className="d-flex justify-content-between align-items-start mb-2">
-                      <h5 className="card-title mb-0">Order #{d.order_id || d.order?.id || d.order}</h5>
                     </div>
-                    
-                    <div className="mb-2">
-                      <small className="text-muted fw-medium">Customer:</small>
-                      <div>
-                        {d.customer_first_name || d.customer_last_name ? 
-                          `${d.customer_first_name || ''} ${d.customer_last_name || ''}`.trim() : 
-                          'Unknown Customer'}
-                      </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <Package size={32} className="text-muted mb-2" />
+                      <p className="text-muted mb-0">No pending deliveries</p>
                     </div>
-                    
-                    <div className="mb-2">
-                      <small className="text-muted fw-medium">Address:</small>
-                      <div>{d.customer_address || 'No address provided'}</div>
-                    </div>
-                    
-                    <div className="mb-2">
-                      <small className="text-muted fw-medium">Phone:</small>
-                      <div>{d.customer_phone || 'No phone provided'}</div>
-                    </div>
-                    
-                    <div className="mb-3">
-                      <small className="text-muted fw-medium">Items:</small>
-                      <div>
-                        {d.order_items?.map((item, idx) => (
-                          <div key={idx} className="small">
-                            <div>{item.product_name || 'Unknown Product'}: {item.qty_full_out || 0} full</div>
-                            <div className="mt-1">
-                              <span className="small">Returned: {item.qty_empty_in || 0}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="d-flex justify-content-between align-items-center">
-                      <h4 className="fw-bold text-success mb-0">₱{parseFloat(d.order_total_amount || 0).toFixed(2)}</h4>
-                      <div className="btn-group" role="group">
-                        <button
-                          className="btn btn-sm btn-success"
-                          onClick={() => handleDeliveredClick(d)}
-                          disabled={markDelivered.isLoading}
-                        >
-                          {markDelivered.isLoading ? 'Updating...' : 'Delivered'}
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => {
-                            if (window.confirm('Are you sure you want to cancel this order?')) {
-                              markCancelled.mutate(d.order_id || d.order?.id || d.order)
-                            }
-                          }}
-                          disabled={markCancelled.isLoading}
-                        >
-                          {markCancelled.isLoading ? 'Cancelling...' : 'Cancel'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
-            ))}
+            </div>
+
+            {/* In-Route Deliveries */}
+            <div className="col-lg-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-header bg-white border-0 py-3">
+                  <div className="d-flex align-items-center gap-2">
+                    <div className="rounded-circle bg-primary bg-opacity-10 p-2 text-primary">
+                      <MapPin size={20} />
+                    </div>
+                    <h5 className="mb-0">In Route ({inRouteDeliveries.length})</h5>
+                  </div>
+                </div>
+                <div className="card-body p-0">
+                  {inRouteDeliveries.length > 0 ? (
+                    <div className="list-group list-group-flush">
+                      {inRouteDeliveries.map(delivery => (
+                        <div key={delivery.id} className="list-group-item border-0 px-3 py-3">
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                              <div className="fw-medium">Order #{delivery.order_id}</div>
+                              <div className="small text-muted">
+                                {delivery.customer_first_name} {delivery.customer_last_name}
+                              </div>
+                              <div className="small text-muted">
+                                {delivery.customer_address}
+                              </div>
+                            </div>
+                            <span className="badge bg-primary-subtle text-primary-emphasis">
+                              In Route
+                            </span>
+                          </div>
+                          <div className="small mb-2">
+                            <strong>{delivery.order_product_name}</strong> × {delivery.order_quantity}
+                          </div>
+                          <div className="d-flex gap-2">
+                            <button 
+                              className="btn btn-sm btn-success d-flex align-items-center gap-1"
+                              onClick={() => handleCompleteDelivery(delivery.id)}
+                              disabled={updateDeliveryStatus.isLoading}
+                            >
+                              <CheckCircle size={14} />
+                              Complete
+                            </button>
+                            <button 
+                              className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
+                              onClick={() => handleCancelDelivery(delivery.id)}
+                              disabled={updateDeliveryStatus.isLoading}
+                            >
+                              <X size={14} />
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <MapPin size={32} className="text-muted mb-2" />
+                      <p className="text-muted mb-0">No deliveries in route</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Completed Deliveries */}
+            <div className="col-lg-4">
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-header bg-white border-0 py-3">
+                  <div className="d-flex align-items-center gap-2">
+                    <div className="rounded-circle bg-success bg-opacity-10 p-2 text-success">
+                      <CheckCircle size={20} />
+                    </div>
+                    <h5 className="mb-0">Completed ({completedDeliveries.length})</h5>
+                  </div>
+                </div>
+                <div className="card-body p-0">
+                  {completedDeliveries.length > 0 ? (
+                    <div className="list-group list-group-flush">
+                      {completedDeliveries.map(delivery => (
+                        <div key={delivery.id} className="list-group-item border-0 px-3 py-3">
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                              <div className="fw-medium">Order #{delivery.order_id}</div>
+                              <div className="small text-muted">
+                                {delivery.customer_first_name} {delivery.customer_last_name}
+                              </div>
+                            </div>
+                            <span className="badge bg-success-subtle text-success-emphasis">
+                              Completed
+                            </span>
+                          </div>
+                          <div className="small">
+                            <strong>{delivery.order_product_name}</strong> × {delivery.order_quantity}
+                          </div>
+                          <div className="small text-muted mt-1">
+                            Delivered at: {new Date(delivery.delivered_at).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <CheckCircle size={32} className="text-muted mb-2" />
+                      <p className="text-muted mb-0">No completed deliveries</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-        
-        {/* Container Return Modal */}
-        {showReturnModal && selectedDelivery && (
-          <ContainerReturnModal 
-            delivery={selectedDelivery}
-            onClose={() => setShowReturnModal(false)}
-            onSubmit={handleContainerReturnSubmit}
-          />
         )}
       </div>
     </AppShell>
