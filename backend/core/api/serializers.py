@@ -71,7 +71,9 @@ class ProfileSerializer(serializers.ModelSerializer):
                 'id': instance.address.id,
                 'full_address': instance.address.full_address,
                 'barangay': instance.address.barangay.id,
-                'municipality': instance.address.barangay.municipality.id
+                'municipality': instance.address.barangay.municipality.id,
+                'barangay_name': instance.address.barangay.name,
+                'municipality_name': instance.address.barangay.municipality.name
             }
         else:
             representation['address'] = None
@@ -126,7 +128,7 @@ class ProfileSerializer(serializers.ModelSerializer):
                         setattr(instance.address, key, value)
                     instance.address.save()
                 else:
-                    # Create new address
+                    # Always create a new address for each user
                     address = Address.objects.create(**address_data)
                     instance.address = address
             except Municipality.DoesNotExist:

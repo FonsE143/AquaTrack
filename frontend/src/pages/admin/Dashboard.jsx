@@ -13,6 +13,7 @@ export default function AdminDashboard() {
     { label: 'Route', href: '/admin/route' },
     { label: 'Deployment', href: '/admin/deployment' },
     { label: 'Employees', href: '/admin/employees' },
+    { label: 'Products', href: '/admin/products', adminOnly: true },
     { label: 'Activity Logs', href: '/admin/activity-logs' },
   ]
 

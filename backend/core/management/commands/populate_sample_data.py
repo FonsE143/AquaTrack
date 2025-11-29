@@ -12,18 +12,15 @@ class Command(BaseCommand):
         # Create barangays
         brgy_1, created = Barangay.objects.get_or_create(
             municipality=manila,
-            name='Barangay 1',
-            defaults={'street_house_number': '123 Main Street'}
+            name='Barangay 1'
         )
         brgy_2, created = Barangay.objects.get_or_create(
             municipality=manila,
-            name='Barangay 2',
-            defaults={'street_house_number': '456 Second Street'}
+            name='Barangay 2'
         )
         brgy_3, created = Barangay.objects.get_or_create(
             municipality=quezon_city,
-            name='Barangay 3',
-            defaults={'street_house_number': '789 Third Street'}
+            name='Barangay 3'
         )
         
         # Create addresses
@@ -189,18 +186,21 @@ class Command(BaseCommand):
             )
         
         # Create routes
-        Route.objects.get_or_create(
+        route1, created = Route.objects.get_or_create(
             route_number='R001',
-            municipality=manila,
-            barangay=brgy_1,
             defaults={}
         )
-        Route.objects.get_or_create(
+        if created:
+            route1.municipalities.add(manila)
+            route1.barangays.add(brgy_1)
+        
+        route2, created = Route.objects.get_or_create(
             route_number='R002',
-            municipality=quezon_city,
-            barangay=brgy_3,
             defaults={}
         )
+        if created:
+            route2.municipalities.add(quezon_city)
+            route2.barangays.add(brgy_3)
         
         # Create vehicles
         Vehicle.objects.get_or_create(

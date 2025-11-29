@@ -42,7 +42,9 @@ class Address(models.Model):
     full_address = models.TextField()
     
     class Meta:
-        unique_together = ('barangay', 'full_address')
+        # Removed unique constraint to allow duplicate addresses
+        # unique_together = ('barangay', 'full_address')
+        pass
 
     def __str__(self):
         return f"{self.full_address}, {self.barangay}"

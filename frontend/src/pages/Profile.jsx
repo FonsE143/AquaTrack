@@ -13,6 +13,7 @@ const Profile = () => {
   })
 
   const [message, setMessage] = useState(null)
+  const [isEditingAddress, setIsEditingAddress] = useState(false)
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
@@ -126,12 +127,14 @@ const Profile = () => {
         address_details: data.address?.full_address || '',
       }
       console.log('Form initialized with:', newForm);
-      setForm(newForm)
       
       // Show a message if no address is set
       if (!data.address?.full_address) {
         setMessage({ type: 'info', text: 'Please set your complete address below.' })
       }
+      
+      // Set the form
+      setForm(newForm)
       
       // If there's a municipality in the loaded data, fetch barangays for it
       if (data.address?.municipality) {
@@ -145,20 +148,11 @@ const Profile = () => {
             const barangayData = Array.isArray(response.data) ? response.data : 
                                 (response.data.results && Array.isArray(response.data.results) ? response.data.results : [])
             console.log('Received barangays:', barangayData);
+            console.log('Setting barangay to:', newForm.barangay);
             setBarangays(barangayData)
-            
-            // Check if the current barangay selection is still valid
-            const currentBarangayValid = barangayData.some(b => b.id.toString() === data.address?.barangay?.toString());
-            console.log('Current barangay valid:', currentBarangayValid, 'Current barangay:', data.address?.barangay);
-            if (!currentBarangayValid && data.address?.barangay) {
-              // If the barangay is not valid, reset it
-              console.log('Resetting barangay selection');
-              setForm(prev => ({ ...prev, barangay: '' }))
-            }
           } catch (err) {
             console.error('Failed to fetch barangays:', err)
             setBarangays([])
-            setForm(prev => ({ ...prev, barangay: '' }))
           }
         }
         
@@ -187,6 +181,7 @@ const Profile = () => {
         barangay: updated.address?.barangay ? String(updated.address.barangay) : '',
         address_details: updated.address?.full_address || '',
       })
+      setIsEditingAddress(false) // Close address editor after successful update
       setMessage({ type: 'success', text: 'Profile and address updated successfully.' })
     },
     onError: (err) => {
@@ -226,20 +221,22 @@ const Profile = () => {
   const handleSubmit = (e) => {
     e.preventDefault()
     
-    // Validate address fields
-    // If any address field is filled, all must be filled
-    if (form.municipality || form.barangay || form.address_details) {
-      if (!form.municipality || form.municipality === '') {
-        setMessage({ type: 'error', text: 'Please select a municipality.' })
-        return
-      }
-      if (!form.barangay || form.barangay === '') {
-        setMessage({ type: 'error', text: 'Please select a barangay.' })
-        return
-      }
-      if (!form.address_details.trim()) {
-        setMessage({ type: 'error', text: 'House Number / Lot Number / Street is required.' })
-        return
+    // Validate address fields if editing address
+    if (isEditingAddress) {
+      // If any address field is filled, all must be filled
+      if (form.municipality || form.barangay || form.address_details) {
+        if (!form.municipality || form.municipality === '') {
+          setMessage({ type: 'error', text: 'Please select a municipality.' })
+          return
+        }
+        if (!form.barangay || form.barangay === '') {
+          setMessage({ type: 'error', text: 'Please select a barangay.' })
+          return
+        }
+        if (!form.address_details.trim()) {
+          setMessage({ type: 'error', text: 'House Number / Lot Number / Street is required.' })
+          return
+        }
       }
     }
     
@@ -249,12 +246,36 @@ const Profile = () => {
       last_name: form.last_name,
       email: form.email,
       phone: form.phone,
-      municipality: form.municipality ? Number(form.municipality) : undefined,
-      barangay: form.barangay ? Number(form.barangay) : undefined,
-      address_details: form.address_details,
     }
+    
+    // Only include address fields if editing address
+    if (isEditingAddress) {
+      payload.municipality = form.municipality ? Number(form.municipality) : undefined
+      payload.barangay = form.barangay ? Number(form.barangay) : undefined
+      payload.address_details = form.address_details
+    }
+    
     console.log('Sending profile update payload:', payload);
     mutation.mutate(payload)
+  }
+
+  const getAddressDisplay = () => {
+    if (!data?.address) {
+      return 'No address set'
+    }
+    
+    const { full_address, barangay_name, municipality_name } = data.address
+    if (full_address && barangay_name && municipality_name) {
+      return `${full_address}, ${barangay_name}, ${municipality_name}`
+    }
+    
+    // Fallback to IDs if names are not available
+    const { full_address: addr, barangay, municipality } = data.address
+    if (addr && barangay && municipality) {
+      return `${addr}, Barangay ID: ${barangay}, Municipality ID: ${municipality}`
+    }
+    
+    return 'Incomplete address'
   }
 
   if (isLoading) return <div>Loading...</div>
@@ -333,53 +354,84 @@ const Profile = () => {
                         className="form-control"
                       />
                     </div>
-                    <div className="col-md-6">
-                      <label className="form-label fw-medium">Municipality</label>
-                      <select
-                        name="municipality"
-                        value={form.municipality}
-                        onChange={handleChange}
-                        className="form-control"
-                      >
-                        <option value="">Select Municipality</option>
-                        {Array.isArray(municipalities) && municipalities.map((municipality) => (
-                          <option key={municipality.id} value={municipality.id}>
-                            {municipality.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label fw-medium">Barangay</label>
-                      <select
-                        name="barangay"
-                        value={form.barangay}
-                        onChange={handleChange}
-                        className="form-control"
-                        disabled={!form.municipality}
-                      >
-                        <option value="">Select Barangay</option>
-                        {Array.isArray(barangays) && barangays.map((barangay) => (
-                          <option key={barangay.id} value={barangay.id}>
-                            {barangay.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    
+                    {/* Address Display */}
                     <div className="col-12">
-                      <label className="form-label fw-medium">House Number / Lot Number / Street *</label>
-                      <input
-                        type="text"
-                        name="address_details"
-                        value={form.address_details}
-                        onChange={handleChange}
-                        className="form-control"
-                        placeholder="Enter your house number, lot number, or street address"
-                        required
-                      />
-                      <div className="form-text">This field is required to set your complete address.</div>
+                      <label className="form-label fw-medium">Address</label>
+                      <div className="border rounded p-3">
+                        <div className="d-flex justify-content-between align-items-start">
+                          <div>
+                            {data?.address ? (
+                              <p className="mb-0">{getAddressDisplay()}</p>
+                            ) : (
+                              <p className="mb-0 text-muted">No address set</p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-outline-primary btn-sm"
+                            onClick={() => setIsEditingAddress(!isEditingAddress)}
+                          >
+                            {isEditingAddress ? 'Cancel Edit' : 'Edit Address'}
+                          </button>
+                        </div>
+                        
+                        {/* Address Edit Form */}
+                        {isEditingAddress && (
+                          <div className="mt-3 pt-3 border-top">
+                            <div className="row g-3">
+                              <div className="col-md-6">
+                                <label className="form-label fw-medium">Municipality</label>
+                                <select
+                                  name="municipality"
+                                  value={form.municipality}
+                                  onChange={handleChange}
+                                  className="form-control"
+                                >
+                                  <option value="">Select Municipality</option>
+                                  {Array.isArray(municipalities) && municipalities.map((municipality) => (
+                                    <option key={municipality.id} value={String(municipality.id)}>
+                                      {municipality.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="col-md-6">
+                                <label className="form-label fw-medium">Barangay</label>
+                                <select
+                                  name="barangay"
+                                  value={form.barangay}
+                                  onChange={handleChange}
+                                  className="form-control"
+                                  disabled={!form.municipality}
+                                >
+                                  <option value="">Select Barangay</option>
+                                  {Array.isArray(barangays) && barangays.map((barangay) => (
+                                    <option key={barangay.id} value={String(barangay.id)}>
+                                      {barangay.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="col-12">
+                                <label className="form-label fw-medium">House Number / Lot Number / Street *</label>
+                                <input
+                                  type="text"
+                                  name="address_details"
+                                  value={form.address_details}
+                                  onChange={handleChange}
+                                  className="form-control"
+                                  placeholder="Enter your house number, lot number, or street address"
+                                />
+                                <div className="form-text">This field is required to set your complete address.</div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  
                   <div className="d-flex justify-content-end mt-4">
                     <button
                       type="submit"
