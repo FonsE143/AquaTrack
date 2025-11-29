@@ -140,168 +140,97 @@ export default function DriverDeliveries() {
           </div>
         ) : (
           <div className="row g-4">
-            {/* Pending Deliveries */}
-            <div className="col-lg-4">
-              <div className="card border-0 shadow-sm h-100">
+            {/* Customer Orders Table */}
+            <div className="col-12">
+              <div className="card border-0 shadow-sm">
                 <div className="card-header bg-white border-0 py-3">
                   <div className="d-flex align-items-center gap-2">
-                    <div className="rounded-circle bg-warning bg-opacity-10 p-2 text-warning">
-                      <Package size={20} />
-                    </div>
-                    <h5 className="mb-0">Pending ({pendingDeliveries.length})</h5>
+                    <Package className="text-primary" size={20} />
+                    <h5 className="mb-0">Customer Orders</h5>
                   </div>
                 </div>
                 <div className="card-body p-0">
-                  {pendingDeliveries.length > 0 ? (
-                    <div className="list-group list-group-flush">
-                      {pendingDeliveries.map(delivery => (
-                        <div key={delivery.id} className="list-group-item border-0 px-3 py-3">
-                          <div className="d-flex justify-content-between align-items-start mb-2">
-                            <div>
-                              <div className="fw-medium">Order #{delivery.order_id}</div>
-                              <div className="small text-muted">
+                  <div className="table-responsive">
+                    <table className="table table-hover mb-0">
+                      <thead className="table-light">
+                        <tr>
+                          <th>Order ID</th>
+                          <th>Customer</th>
+                          <th>Address</th>
+                          <th>Product</th>
+                          <th>Quantity</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Array.isArray(deliveries) && deliveries.length > 0 ? (
+                          deliveries.map(delivery => (
+                            <tr key={delivery.id}>
+                              <td>#{delivery.order_id}</td>
+                              <td>
                                 {delivery.customer_first_name} {delivery.customer_last_name}
-                              </div>
-                              <div className="small text-muted">
-                                {delivery.customer_address}
-                              </div>
-                            </div>
-                            <span className="badge bg-warning-subtle text-warning-emphasis">
-                              Pending
-                            </span>
-                          </div>
-                          <div className="small mb-2">
-                            <strong>{delivery.order_product_name}</strong> × {delivery.order_quantity}
-                          </div>
-                          <div className="d-flex gap-2">
-                            <button 
-                              className="btn btn-sm btn-success d-flex align-items-center gap-1"
-                              onClick={() => handleStartDelivery(delivery.id)}
-                              disabled={updateDeliveryStatus.isLoading}
-                            >
-                              <Play size={14} />
-                              Start
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <Package size={32} className="text-muted mb-2" />
-                      <p className="text-muted mb-0">No pending deliveries</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* In-Route Deliveries */}
-            <div className="col-lg-4">
-              <div className="card border-0 shadow-sm h-100">
-                <div className="card-header bg-white border-0 py-3">
-                  <div className="d-flex align-items-center gap-2">
-                    <div className="rounded-circle bg-primary bg-opacity-10 p-2 text-primary">
-                      <MapPin size={20} />
-                    </div>
-                    <h5 className="mb-0">In Route ({inRouteDeliveries.length})</h5>
+                              </td>
+                              <td>{delivery.customer_address}</td>
+                              <td>{delivery.order_product_name}</td>
+                              <td>{delivery.order_quantity}</td>
+                              <td>
+                                <span className={`badge ${
+                                  delivery.status === 'delivered' ? 'bg-success-subtle text-success-emphasis' :
+                                  delivery.status === 'in_route' ? 'bg-primary-subtle text-primary-emphasis' :
+                                  delivery.status === 'cancelled' ? 'bg-danger-subtle text-danger-emphasis' :
+                                  'bg-warning-subtle text-warning-emphasis'
+                                }`}>
+                                  {delivery.status}
+                                </span>
+                              </td>
+                              <td>
+                                {delivery.status === 'assigned' && (
+                                  <button 
+                                    className="btn btn-sm btn-success d-flex align-items-center gap-1"
+                                    onClick={() => handleStartDelivery(delivery.id)}
+                                    disabled={updateDeliveryStatus.isLoading}
+                                  >
+                                    <Play size={14} />
+                                    Start
+                                  </button>
+                                )}
+                                {delivery.status === 'in_route' && (
+                                  <div className="d-flex gap-2">
+                                    <button 
+                                      className="btn btn-sm btn-success d-flex align-items-center gap-1"
+                                      onClick={() => handleCompleteDelivery(delivery.id)}
+                                      disabled={updateDeliveryStatus.isLoading}
+                                    >
+                                      <CheckCircle size={14} />
+                                      Complete
+                                    </button>
+                                    <button 
+                                      className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
+                                      onClick={() => handleCancelDelivery(delivery.id)}
+                                      disabled={updateDeliveryStatus.isLoading}
+                                    >
+                                      <X size={14} />
+                                      Cancel
+                                    </button>
+                                  </div>
+                                )}
+                                {(delivery.status === 'delivered' || delivery.status === 'cancelled') && (
+                                  <span className="text-muted">No actions</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="7" className="text-center py-3">
+                              No deliveries found
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-                <div className="card-body p-0">
-                  {inRouteDeliveries.length > 0 ? (
-                    <div className="list-group list-group-flush">
-                      {inRouteDeliveries.map(delivery => (
-                        <div key={delivery.id} className="list-group-item border-0 px-3 py-3">
-                          <div className="d-flex justify-content-between align-items-start mb-2">
-                            <div>
-                              <div className="fw-medium">Order #{delivery.order_id}</div>
-                              <div className="small text-muted">
-                                {delivery.customer_first_name} {delivery.customer_last_name}
-                              </div>
-                              <div className="small text-muted">
-                                {delivery.customer_address}
-                              </div>
-                            </div>
-                            <span className="badge bg-primary-subtle text-primary-emphasis">
-                              In Route
-                            </span>
-                          </div>
-                          <div className="small mb-2">
-                            <strong>{delivery.order_product_name}</strong> × {delivery.order_quantity}
-                          </div>
-                          <div className="d-flex gap-2">
-                            <button 
-                              className="btn btn-sm btn-success d-flex align-items-center gap-1"
-                              onClick={() => handleCompleteDelivery(delivery.id)}
-                              disabled={updateDeliveryStatus.isLoading}
-                            >
-                              <CheckCircle size={14} />
-                              Complete
-                            </button>
-                            <button 
-                              className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
-                              onClick={() => handleCancelDelivery(delivery.id)}
-                              disabled={updateDeliveryStatus.isLoading}
-                            >
-                              <X size={14} />
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <MapPin size={32} className="text-muted mb-2" />
-                      <p className="text-muted mb-0">No deliveries in route</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Completed Deliveries */}
-            <div className="col-lg-4">
-              <div className="card border-0 shadow-sm h-100">
-                <div className="card-header bg-white border-0 py-3">
-                  <div className="d-flex align-items-center gap-2">
-                    <div className="rounded-circle bg-success bg-opacity-10 p-2 text-success">
-                      <CheckCircle size={20} />
-                    </div>
-                    <h5 className="mb-0">Completed ({completedDeliveries.length})</h5>
-                  </div>
-                </div>
-                <div className="card-body p-0">
-                  {completedDeliveries.length > 0 ? (
-                    <div className="list-group list-group-flush">
-                      {completedDeliveries.map(delivery => (
-                        <div key={delivery.id} className="list-group-item border-0 px-3 py-3">
-                          <div className="d-flex justify-content-between align-items-start mb-2">
-                            <div>
-                              <div className="fw-medium">Order #{delivery.order_id}</div>
-                              <div className="small text-muted">
-                                {delivery.customer_first_name} {delivery.customer_last_name}
-                              </div>
-                            </div>
-                            <span className="badge bg-success-subtle text-success-emphasis">
-                              Completed
-                            </span>
-                          </div>
-                          <div className="small">
-                            <strong>{delivery.order_product_name}</strong> × {delivery.order_quantity}
-                          </div>
-                          <div className="small text-muted mt-1">
-                            Delivered at: {new Date(delivery.delivered_at).toLocaleTimeString()}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <CheckCircle size={32} className="text-muted mb-2" />
-                      <p className="text-muted mb-0">No completed deliveries</p>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

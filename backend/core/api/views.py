@@ -1121,3 +1121,22 @@ class DeploymentViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+    @action(detail=False, methods=['get'], url_path='my-deployment')
+    def my_deployment(self, request):
+        """Get the current driver's deployment"""
+        if not hasattr(request.user, 'profile'):
+            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Only drivers can access their deployment
+        if request.user.profile.role != 'driver':
+            return Response({'error': 'Only drivers can access their deployment'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            # Get the most recent deployment for this driver
+            deployment = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').prefetch_related('route__municipalities', 'route__barangays').filter(driver=request.user.profile).latest('created_at')
+            serializer = self.get_serializer(deployment)
+            return Response(serializer.data)
+        except Deployment.DoesNotExist:
+            return Response({'error': 'No deployment found for this driver'}, status=status.HTTP_404_NOT_FOUND)
+

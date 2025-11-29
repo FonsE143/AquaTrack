@@ -222,6 +222,7 @@ class DeploymentSerializer(serializers.ModelSerializer):
     vehicle_plate_number = serializers.CharField(source='vehicle.plate_number', read_only=True)
     route_number = serializers.CharField(source='route.route_number', read_only=True)
     municipality_names = serializers.SerializerMethodField(read_only=True)
+    barangay_names = serializers.SerializerMethodField(read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     deployment_id = serializers.IntegerField(read_only=True)
     
@@ -239,6 +240,17 @@ class DeploymentSerializer(serializers.ModelSerializer):
             return 'N/A'
         except Exception as e:
             print(f"Error in get_municipality_names: {e}")
+            return 'N/A'
+    
+    def get_barangay_names(self, obj):
+        # Return comma-separated list of barangay names
+        try:
+            if obj.route and hasattr(obj.route, 'barangays'):
+                barangays = obj.route.barangays.all()
+                return ", ".join([b.name for b in barangays])
+            return 'N/A'
+        except Exception as e:
+            print(f"Error in get_barangay_names: {e}")
             return 'N/A'
     
     def validate(self, data):
@@ -346,10 +358,12 @@ class DeploymentSerializer(serializers.ModelSerializer):
         try:
             representation['route_number'] = instance.route.route_number if instance.route else 'N/A'
             representation['municipality_names'] = self.get_municipality_names(instance)
+            representation['barangay_names'] = self.get_barangay_names(instance)
         except Exception as e:
             print(f"Error getting route info: {e}")
             representation['route_number'] = 'N/A'
             representation['municipality_names'] = 'N/A'
+            representation['barangay_names'] = 'N/A'
         
         try:
             representation['product_name'] = instance.product.name if instance.product else 'N/A'

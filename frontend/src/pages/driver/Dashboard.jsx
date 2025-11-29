@@ -56,11 +56,11 @@ export default function DriverDashboard() {
           </div>
         </div>
 
-        {/* Deployment Info */}
+        {/* Deployment Info - Stock Count Table */}
         {myDeployment && (
           <div className="row g-4 mb-4">
-            {/* Stock Count */}
-            <div className="col-lg-4">
+            {/* Stock Count Table */}
+            <div className="col-md-6">
               <div className="card border-0 shadow-sm h-100">
                 <div className="card-header bg-white border-0 py-3">
                   <div className="d-flex align-items-center gap-2">
@@ -68,64 +68,72 @@ export default function DriverDashboard() {
                     <h5 className="mb-0">Stock Count</h5>
                   </div>
                 </div>
-                <div className="card-body">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <div className="fw-medium">{myDeployment.product_name || 'N/A'}</div>
-                      <div className="small text-muted">Product</div>
-                    </div>
-                    <div className="text-end">
-                      <div className="display-6 text-primary fw-bold">{myDeployment.stock || 0}</div>
-                      <div className="small text-muted">Units</div>
-                    </div>
+                <div className="card-body p-0">
+                  <div className="table-responsive">
+                    <table className="table table-hover mb-0">
+                      <thead className="table-light">
+                        <tr>
+                          <th>Product</th>
+                          <th>Current Stock</th>
+                          <th>Vehicle</th>
+                          <th>Plate Number</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>{myDeployment.product_name || 'N/A'}</td>
+                          <td>
+                            <span className="fw-bold">{myDeployment.stock || 0} units</span>
+                          </td>
+                          <td>{myDeployment.vehicle_name || 'N/A'}</td>
+                          <td>{myDeployment.vehicle_plate_number || 'N/A'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Route Info */}
-            <div className="col-lg-4">
+            {/* Route Table - Municipality and Barangays */}
+            <div className="col-md-6">
               <div className="card border-0 shadow-sm h-100">
                 <div className="card-header bg-white border-0 py-3">
                   <div className="d-flex align-items-center gap-2">
                     <MapPin className="text-info" size={20} />
-                    <h5 className="mb-0">Route</h5>
+                    <h5 className="mb-0">Route Information</h5>
                   </div>
                 </div>
-                <div className="card-body">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <div className="fw-medium">Route {myDeployment.route_number || 'N/A'}</div>
-                      <div className="small text-muted">Route Number</div>
-                    </div>
-                    <div className="text-end">
-                      <div className="fw-medium">{myDeployment.municipality_names || 'N/A'}</div>
-                      <div className="small text-muted">Municipalities</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Vehicle Info */}
-            <div className="col-lg-4">
-              <div className="card border-0 shadow-sm h-100">
-                <div className="card-header bg-white border-0 py-3">
-                  <div className="d-flex align-items-center gap-2">
-                    <Truck className="text-warning" size={20} />
-                    <h5 className="mb-0">Vehicle</h5>
-                  </div>
-                </div>
-                <div className="card-body">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <div>
-                      <div className="fw-medium">{myDeployment.vehicle_name || 'N/A'}</div>
-                      <div className="small text-muted">Vehicle</div>
-                    </div>
-                    <div className="text-end">
-                      <div className="fw-medium">{myDeployment.vehicle_plate_number || 'N/A'}</div>
-                      <div className="small text-muted">Plate Number</div>
-                    </div>
+                <div className="card-body p-0">
+                  <div className="table-responsive">
+                    <table className="table table-hover mb-0">
+                      <thead className="table-light">
+                        <tr>
+                          <th>Route Number</th>
+                          <th>Municipality</th>
+                          <th>Barangays</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Route {myDeployment.route_number || 'N/A'}</td>
+                          <td>{myDeployment.municipality_names || 'N/A'}</td>
+                          <td>
+                            {myDeployment.barangay_names ? (
+                              <div className="d-flex flex-wrap gap-1">
+                                {myDeployment.barangay_names.split(', ').map((barangay, idx) => (
+                                  <span key={idx} className="badge bg-secondary-subtle text-secondary-emphasis">
+                                    {barangay}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              'N/A'
+                            )}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -133,8 +141,8 @@ export default function DriverDashboard() {
           </div>
         )}
 
+        {/* Recent Deliveries Table */}
         <div className="row g-4">
-          {/* Recent Deliveries */}
           <div className="col-12">
             <div className="card border-0 shadow-sm">
               <div className="card-header bg-white border-0 py-3">
