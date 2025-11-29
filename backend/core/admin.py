@@ -57,11 +57,25 @@ class DeploymentAdmin(admin.ModelAdmin):
     list_display = ('driver', 'vehicle', 'route', 'stock', 'created_at')
     list_filter = ('driver', 'vehicle', 'route', 'created_at')
 
+# Custom admin for User
+class UserAdmin(admin.ModelAdmin):
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active')
+    list_filter = ('is_staff', 'is_active', 'is_superuser', 'date_joined')
+    search_fields = ('username', 'email', 'first_name', 'last_name')
+    ordering = ('-date_joined',)
+
+# Custom admin for Profile
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'role', 'first_name', 'last_name', 'phone')
+    list_filter = ('role',)
+    search_fields = ('user__username', 'user__email', 'first_name', 'last_name', 'phone')
+
 # Register your models here.
+admin.site.register(User, UserAdmin)
 admin.site.register(Product)
 admin.site.register(Order)
 admin.site.register(Delivery)
-admin.site.register(Profile)
+admin.site.register(Profile, ProfileAdmin)
 admin.site.register(Notification)
 admin.site.register(OrderHistory)
 admin.site.register(CancelledOrder)

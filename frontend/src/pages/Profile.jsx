@@ -44,26 +44,18 @@ const Profile = () => {
       case 'staff':
         return [
           { label: 'Dashboard', href: '/staff/dashboard' },
-          { label: 'Orders', href: '/staff/orders' },
-          { label: 'Deliveries', href: '/staff/deliveries' },
-          { label: 'Customers', href: '/staff/customers' },
-          { label: 'Profile', href: '/profile', active: true },
+          { label: 'Orders', href: '/staff/deployment' },
+          { label: 'Deliveries', href: '/staff/activity-logs' },
         ]
       case 'driver':
         return [
           { label: 'Dashboard', href: '/driver/dashboard' },
           { label: 'Deliveries', href: '/driver/deliveries' },
-          { label: 'Activity Log', href: '/driver/activity-log' },
-          { label: 'Profile', href: '/profile', active: true },
         ]
       case 'customer':
       default:
         return [
           { label: 'Dashboard', href: '/customer/dashboard' },
-          { label: 'Orders', href: '/customer/orders' },
-          { label: 'Deliveries', href: '/customer/deliveries' },
-          { label: 'Order History', href: '/customer/order-history' },
-          { label: 'Profile', href: '/profile', active: true },
         ]
     }
   }, [data])

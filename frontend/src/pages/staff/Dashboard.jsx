@@ -5,6 +5,7 @@ import { Truck, Package, Plus } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useState } from 'react'
+import { createStyledAlert } from '../../utils/alertHelper'
 
 export default function StaffDashboard() {
   const items = [
@@ -43,11 +44,11 @@ export default function StaffDashboard() {
         product: parseInt(walkInOrder.product),
         quantity: parseInt(walkInOrder.quantity)
       })
-      alert('Walk-in order created successfully!')
+      createStyledAlert('success', 'Order Created', 'Walk-in order created successfully!')
       setShowWalkInOrder(false)
       setWalkInOrder({ product: '', quantity: 1 })
     } catch (error) {
-      alert('Failed to create walk-in order: ' + (error.response?.data?.detail || error.message))
+      createStyledAlert('error', 'Order Failed', 'Failed to create walk-in order: ' + (error.response?.data?.detail || error.message))
     }
   }
 

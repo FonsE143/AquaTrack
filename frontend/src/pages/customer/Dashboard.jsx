@@ -4,7 +4,7 @@ import { Sidebar } from '../../components/Sidebar'
 import { Truck, Package, Plus, AlertTriangle } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 export default function CustomerDashboard() {
   const items = [
@@ -23,14 +23,29 @@ export default function CustomerDashboard() {
     queryFn: async () => (await api.get('/me/')).data,
   })
 
-  const { data: products } = useQuery({
-    queryKey: ['products'],
-    queryFn: async () => (await api.get('/products/')).data.results || (await api.get('/products/')).data || [],
-  })
-
   const { data: deliveries } = useQuery({
     queryKey: ['my-deliveries'],
     queryFn: async () => (await api.get('/deliveries/my-deliveries/')).data.results || (await api.get('/deliveries/my-deliveries/')).data || [],
+  })
+
+  // Fetch products for order modal
+  const { data: products } = useQuery({
+    queryKey: ['order-products'],
+    queryFn: async () => (await api.get('/products/')).data.results || (await api.get('/products/')).data || [],
+  })
+
+  // Fetch deployments by customer's barangay
+  const { data: barangayDeployments } = useQuery({
+    queryKey: ['barangay-deployments'],
+    queryFn: async () => {
+      try {
+        const response = await api.get('/deployments/by-customer-barangay/')
+        return response.data
+      } catch (error) {
+        console.error('Error fetching barangay deployments:', error)
+        return { deployments: [], message: 'Error fetching deployments' }
+      }
+    },
   })
 
   // Get active drivers heading to customer's address
@@ -38,7 +53,40 @@ export default function CustomerDashboard() {
     ? deliveries.filter(d => d.status === 'in_route')
     : []
 
-  // Handle order creation
+  // Get unique drivers from barangay deployments
+  const uniqueDrivers = useMemo(() => {
+    if (!barangayDeployments?.deployments) return [];
+    
+    const driverMap = {};
+    const uniqueDrivers = [];
+    
+    barangayDeployments.deployments.slice(0, 5).forEach(deployment => {
+      if (deployment.driver_id && !driverMap[deployment.driver_id]) {
+        driverMap[deployment.driver_id] = true;
+        uniqueDrivers.push(deployment);
+      }
+    });
+    
+    return uniqueDrivers;
+  }, [barangayDeployments]);
+
+  // Get maximum quantity for a product based on available stock
+  const getMaxQuantity = (productId) => {
+    if (!productId || !barangayDeployments?.deployments) return 0;
+    
+    const deployment = barangayDeployments.deployments.find(d => d.product === parseInt(productId));
+    return deployment ? deployment.stock : 0;
+  };
+
+  // Reset quantity when product changes
+  useEffect(() => {
+    if (orderForm.product) {
+      const maxQty = getMaxQuantity(orderForm.product);
+      if (orderForm.quantity > maxQty) {
+        setOrderForm({...orderForm, quantity: maxQty});
+      }
+    }
+  }, [orderForm.product, barangayDeployments]);
   const handleCreateOrder = async (e) => {
     e.preventDefault()
     try {
@@ -47,11 +95,11 @@ export default function CustomerDashboard() {
         quantity: parseInt(orderForm.quantity),
         customer: me.id
       })
-      alert('Order created successfully!')
+      createStyledAlert('success', 'Order Created', 'Your order has been created successfully!')
       setShowOrderModal(false)
       setOrderForm({ product: '', quantity: 1 })
     } catch (error) {
-      alert('Failed to create order: ' + (error.response?.data?.detail || error.message))
+      createStyledAlert('error', 'Order Failed', 'Failed to create order: ' + (error.response?.data?.detail || error.message))
     }
   }
 
@@ -76,33 +124,33 @@ export default function CustomerDashboard() {
         </div>
 
         <div className="row g-4">
-          {/* Active Drivers Heading to Me */}
+          {/* Active Drivers */}
           <div className="col-lg-6">
             <div className="card border-0 shadow-sm h-100">
               <div className="card-header bg-white border-0 py-3">
                 <div className="d-flex align-items-center gap-2">
-                  <Truck className="text-success" size={20} />
-                  <h5 className="mb-0">Active Deliveries to Your Address</h5>
+                  <Truck className="text-success" size={72} />
+                  <h5 className="mb-0">Active Drivers</h5>
                 </div>
               </div>
               <div className="card-body">
-                {activeDriversToMe.length > 0 ? (
+                {uniqueDrivers.length > 0 ? (
                   <div className="list-group list-group-flush">
-                    {activeDriversToMe.map(delivery => (
-                      <div key={delivery.id} className="list-group-item border-0 px-0 py-2">
-                        <div className="d-flex align-items-center gap-2">
-                          <div className="rounded-circle bg-success bg-opacity-10 p-2 text-success">
-                            <Truck size={16} />
+                    {uniqueDrivers.map((deployment, index) => (
+                      <div key={index} className="list-group-item border-0 px-0 py-4">
+                        <div className="d-flex align-items-center gap-4">
+                          <div className="rounded-circle bg-success bg-opacity-10 p-4 text-success">
+                            <Truck size={60} />
                           </div>
                           <div>
-                            <div className="fw-medium">
-                              Driver: {delivery.driver_username}
+                            <div className="fw-bold h3 mb-2">
+                              Delivery Driver
                             </div>
-                            <div className="small text-muted">
-                              Product: {delivery.order_product_name} × {delivery.order_quantity}
+                            <div className="h5 mb-2">
+                              Phone: {deployment.driver_phone || 'N/A'}
                             </div>
-                            <div className="small text-muted">
-                              Status: {delivery.status.replace('_', ' ')}
+                            <div className="h5">
+                              Location: N/A
                             </div>
                           </div>
                         </div>
@@ -110,41 +158,108 @@ export default function CustomerDashboard() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-3">
-                    <Truck size={32} className="text-muted mb-2" />
-                    <p className="text-muted mb-0">No active deliveries to your address</p>
+                  <div className="text-center py-5">
+                    <Truck size={120} className="text-muted mb-4" />
+                    <p className="text-muted mb-0 h2">No active drivers</p>
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Stock Availability */}
+          {/* Available Stock Based on Driver Deployment */}
           <div className="col-lg-6">
             <div className="card border-0 shadow-sm h-100">
               <div className="card-header bg-white border-0 py-3">
                 <div className="d-flex align-items-center gap-2">
                   <AlertTriangle className="text-warning" size={20} />
-                  <h5 className="mb-0">Stock Availability</h5>
+                  <h5 className="mb-0">Available Stock</h5>
                 </div>
               </div>
-              <div className="card-body">
-                <div className="d-flex justify-content-around">
-                  <div className="text-center">
-                    <div className="display-6 text-success fw-bold">✓</div>
-                    <div className="text-muted">5-Gallon Water</div>
-                    <div className="small text-success">In Stock</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="display-6 text-success fw-bold">✓</div>
-                    <div className="text-muted">1-Gallon Water</div>
-                    <div className="small text-success">In Stock</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="display-6 text-warning fw-bold">!</div>
-                    <div className="text-muted">Dispensers</div>
-                    <div className="small text-warning">Low Stock</div>
-                  </div>
+              <div className="card-body p-0">
+                <div className="table-responsive" style={{ maxHeight: '250px', minHeight: '250px', overflowY: 'auto' }}>
+                  <table className="table table-hover mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Product</th>
+                        <th>Available Stock</th>
+                        <th>Driver</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {barangayDeployments?.deployments && barangayDeployments.deployments.length > 0 ? (
+                        barangayDeployments.deployments.slice(0, 5).map((deployment, index) => (
+                          <tr key={index}>
+                            <td>{deployment.product_name || 'N/A'}</td>
+                            <td>
+                              <span className="badge bg-primary">{deployment.stock || 0}</span>
+                            </td>
+                            <td>
+                              {deployment.driver_first_name} {deployment.driver_last_name}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="3" className="text-center align-middle" style={{ height: '200px' }}>
+                            No deliveries for the current address
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Order History */}
+        <div className="row g-4 mt-2">
+          <div className="col-12">
+            <div className="card border-0 shadow-sm">
+              <div className="card-header bg-white border-0 py-3">
+                <div className="d-flex align-items-center gap-2">
+                  <Package className="text-info" size={20} />
+                  <h5 className="mb-0">Order History</h5>
+                </div>
+              </div>
+              <div className="card-body p-0">
+                <div className="table-responsive" style={{ maxHeight: '250px', minHeight: '250px', overflowY: 'auto' }}>
+                  <table className="table table-hover mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.isArray(deliveries) && deliveries.length > 0 ? (
+                        deliveries.slice(0, 5).map((delivery, index) => (
+                          <tr key={index}>
+                            <td>{delivery.order_id || 'N/A'}</td>
+                            <td>{delivery.order_product_name || 'N/A'}</td>
+                            <td>{delivery.order_quantity || 0}</td>
+                            <td>{delivery.created_at ? new Date(delivery.created_at).toLocaleDateString() : 'N/A'}</td>
+                            <td>
+                              <span className="badge bg-warning">
+                                {delivery.status ? delivery.status.replace('_', ' ') : 'N/A'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="5" className="text-center align-middle" style={{ height: '200px' }}>
+                            No order history
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -175,19 +290,20 @@ export default function CustomerDashboard() {
                         required
                       >
                         <option value="">Select Product</option>
-                        {Array.isArray(products) && products.map(product => (
-                          <option key={product.id} value={product.id}>{product.name} - ₱{product.price}</option>
+                        {barangayDeployments?.deployments && barangayDeployments.deployments.map((deployment, index) => (
+                          <option key={index} value={deployment.product}>{deployment.product_name} - Stock: {deployment.stock}</option>
                         ))}
                       </select>
                     </div>
                     <div className="mb-3">
-                      <label className="form-label">Quantity</label>
+                      <label className="form-label">Quantity (Max: {getMaxQuantity(orderForm.product)})</label>
                       <input 
                         type="number" 
                         className="form-control" 
                         min="1"
+                        max={getMaxQuantity(orderForm.product)}
                         value={orderForm.quantity}
-                        onChange={(e) => setOrderForm({...orderForm, quantity: e.target.value})}
+                        onChange={(e) => setOrderForm({...orderForm, quantity: Math.min(e.target.value, getMaxQuantity(orderForm.product))})}
                         required
                       />
                     </div>

@@ -216,11 +216,14 @@ class VehicleSerializer(serializers.ModelSerializer):
 class DeploymentSerializer(serializers.ModelSerializer):
     driver_first_name = serializers.CharField(source='driver.first_name', read_only=True)
     driver_last_name = serializers.CharField(source='driver.last_name', read_only=True)
+    driver_phone = serializers.CharField(source='driver.phone', read_only=True, allow_null=True)
+    driver_id = serializers.IntegerField(source='driver.id', read_only=True, allow_null=True)
     vehicle_name = serializers.CharField(source='vehicle.name', read_only=True)
     vehicle_plate_number = serializers.CharField(source='vehicle.plate_number', read_only=True)
     route_number = serializers.CharField(source='route.route_number', read_only=True)
     municipality_names = serializers.SerializerMethodField(read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
+    deployment_id = serializers.IntegerField(read_only=True)
     
     class Meta:
         model = Deployment
@@ -394,6 +397,9 @@ class DeliverySerializer(serializers.ModelSerializer):
     order_product_name = serializers.CharField(source='order.product.name', read_only=True)
     order_quantity = serializers.IntegerField(source='order.quantity', read_only=True)
     driver_username = serializers.CharField(source='driver.user.username', read_only=True, allow_null=True)
+    driver_first_name = serializers.CharField(source='driver.first_name', read_only=True, allow_null=True)
+    driver_last_name = serializers.CharField(source='driver.last_name', read_only=True, allow_null=True)
+    driver_phone = serializers.CharField(source='driver.phone', read_only=True, allow_null=True)
     vehicle_name = serializers.CharField(source='vehicle.name', read_only=True, allow_null=True)
     route_number = serializers.CharField(source='route.route_number', read_only=True, allow_null=True)
     # Add customer details to the delivery serializer
@@ -405,7 +411,7 @@ class DeliverySerializer(serializers.ModelSerializer):
     class Meta:
         model = Delivery
         fields = [
-            'id','order','order_id','order_product_name','order_quantity','driver','driver_username','vehicle','vehicle_name','route','route_number','status'
+            'id','order','order_id','order_product_name','order_quantity','driver','driver_username','driver_first_name','driver_last_name','driver_phone','vehicle','vehicle_name','route','route_number','status'
         ]
         read_only_fields = []
     

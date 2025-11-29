@@ -5,6 +5,7 @@ import { User, Truck, Plus, Edit, Trash2 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useState } from 'react'
+import { createStyledAlert } from '../../utils/alertHelper'
 
 export default function AdminEmployees() {
   const items = [
@@ -21,6 +22,14 @@ export default function AdminEmployees() {
   const [modalType, setModalType] = useState('') // 'create' or 'edit'
   const [currentItem, setCurrentItem] = useState(null)
   const [activeTab, setActiveTab] = useState('staff')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [confirmation, setConfirmation] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null
+  })
+  const itemsPerPage = 5
 
   // Fetch employees data
   const { data: staff } = useQuery({
@@ -38,6 +47,68 @@ export default function AdminEmployees() {
     queryFn: async () => (await api.get('/vehicles/')).data.results || (await api.get('/vehicles/')).data || [],
   })
 
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentStaff = Array.isArray(staff) ? staff.slice(indexOfFirstItem, indexOfLastItem) : [];
+  const currentDrivers = Array.isArray(drivers) ? drivers.slice(indexOfFirstItem, indexOfLastItem) : [];
+  const currentVehicles = Array.isArray(vehicles) ? vehicles.slice(indexOfFirstItem, indexOfLastItem) : [];
+  const totalStaffPages = Array.isArray(staff) ? Math.ceil(staff.length / itemsPerPage) : 0;
+  const totalDriversPages = Array.isArray(drivers) ? Math.ceil(drivers.length / itemsPerPage) : 0;
+  const totalVehiclesPages = Array.isArray(vehicles) ? Math.ceil(vehicles.length / itemsPerPage) : 0;
+
+  // Pagination component
+  const renderPagination = () => {
+    let totalPages = 0;
+    if (activeTab === 'staff') totalPages = totalStaffPages;
+    else if (activeTab === 'drivers') totalPages = totalDriversPages;
+    else totalPages = totalVehiclesPages;
+    
+    if (totalPages <= 1) return null;
+    
+    const pageNumbers = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pageNumbers.push(i);
+    }
+    
+    return (
+      <div className="d-flex justify-content-center mt-3">
+        <nav>
+          <ul className="pagination">
+            <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              >
+                Previous
+              </button>
+            </li>
+            
+            {pageNumbers.map(number => (
+              <li key={number} className={`page-item ${currentPage === number ? 'active' : ''}`}>
+                <button 
+                  className="page-link" 
+                  onClick={() => setCurrentPage(number)}
+                >
+                  {number}
+                </button>
+              </li>
+            ))}
+            
+            <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              >
+                Next
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    );
+  };
+
   // Mutations
   const createUserMutation = useMutation({
     mutationFn: async (userData) => {
@@ -52,50 +123,10 @@ export default function AdminEmployees() {
     onSuccess: () => {
       queryClient.invalidateQueries(['staff', 'drivers', 'vehicles'])
       setShowModal(false)
-      // Show success message
-      const successAlert = document.createElement('div')
-      successAlert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      successAlert.style.zIndex = '9999'
-      successAlert.style.minWidth = '300px'
-      successAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-check-circle-fill"></i>
-          <strong>Success!</strong>
-        </div>
-        <div class="mt-2">User created successfully!</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(successAlert)
-      
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        if (successAlert && successAlert.parentNode) {
-          successAlert.remove()
-        }
-      }, 3000)
+      createStyledAlert('success', 'Success!', 'User created successfully!')
     },
     onError: (error) => {
-      // Show error message
-      const errorAlert = document.createElement('div')
-      errorAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      errorAlert.style.zIndex = '9999'
-      errorAlert.style.minWidth = '300px'
-      errorAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i>
-          <strong>Error!</strong>
-        </div>
-        <div class="mt-2">Failed to create user: ${error.response?.data?.detail || error.message}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(errorAlert)
-      
-      // Auto dismiss after 5 seconds
-      setTimeout(() => {
-        if (errorAlert && errorAlert.parentNode) {
-          errorAlert.remove()
-        }
-      }, 5000)
+      createStyledAlert('error', 'Error!', `Failed to create user: ${error.response?.data?.detail || error.message}`, 5000)
     }
   })
 
@@ -112,50 +143,10 @@ export default function AdminEmployees() {
     onSuccess: () => {
       queryClient.invalidateQueries(['staff', 'drivers', 'vehicles'])
       setShowModal(false)
-      // Show success message
-      const successAlert = document.createElement('div')
-      successAlert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      successAlert.style.zIndex = '9999'
-      successAlert.style.minWidth = '300px'
-      successAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-check-circle-fill"></i>
-          <strong>Success!</strong>
-        </div>
-        <div class="mt-2">User updated successfully!</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(successAlert)
-      
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        if (successAlert && successAlert.parentNode) {
-          successAlert.remove()
-        }
-      }, 3000)
+      createStyledAlert('success', 'Success!', 'User updated successfully!')
     },
     onError: (error) => {
-      // Show error message
-      const errorAlert = document.createElement('div')
-      errorAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      errorAlert.style.zIndex = '9999'
-      errorAlert.style.minWidth = '300px'
-      errorAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i>
-          <strong>Error!</strong>
-        </div>
-        <div class="mt-2">Failed to update user: ${error.response?.data?.detail || error.message}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(errorAlert)
-      
-      // Auto dismiss after 5 seconds
-      setTimeout(() => {
-        if (errorAlert && errorAlert.parentNode) {
-          errorAlert.remove()
-        }
-      }, 5000)
+      createStyledAlert('error', 'Error!', `Failed to update user: ${error.response?.data?.detail || error.message}`, 5000)
     }
   })
 
@@ -166,50 +157,10 @@ export default function AdminEmployees() {
     onSuccess: () => {
       queryClient.invalidateQueries(['vehicles'])
       setShowModal(false)
-      // Show success message
-      const successAlert = document.createElement('div')
-      successAlert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      successAlert.style.zIndex = '9999'
-      successAlert.style.minWidth = '300px'
-      successAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-check-circle-fill"></i>
-          <strong>Success!</strong>
-        </div>
-        <div class="mt-2">Vehicle created successfully!</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(successAlert)
-      
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        if (successAlert && successAlert.parentNode) {
-          successAlert.remove()
-        }
-      }, 3000)
+      createStyledAlert('success', 'Success!', 'Vehicle created successfully!')
     },
     onError: (error) => {
-      // Show error message
-      const errorAlert = document.createElement('div')
-      errorAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      errorAlert.style.zIndex = '9999'
-      errorAlert.style.minWidth = '300px'
-      errorAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i>
-          <strong>Error!</strong>
-        </div>
-        <div class="mt-2">Failed to create vehicle: ${error.response?.data?.detail || error.message}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(errorAlert)
-      
-      // Auto dismiss after 5 seconds
-      setTimeout(() => {
-        if (errorAlert && errorAlert.parentNode) {
-          errorAlert.remove()
-        }
-      }, 5000)
+      createStyledAlert('error', 'Error!', `Failed to create vehicle: ${error.response?.data?.detail || error.message}`, 5000)
     }
   })
 
@@ -220,50 +171,50 @@ export default function AdminEmployees() {
     onSuccess: () => {
       queryClient.invalidateQueries(['vehicles'])
       setShowModal(false)
-      // Show success message
-      const successAlert = document.createElement('div')
-      successAlert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      successAlert.style.zIndex = '9999'
-      successAlert.style.minWidth = '300px'
-      successAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-check-circle-fill"></i>
-          <strong>Success!</strong>
-        </div>
-        <div class="mt-2">Vehicle updated successfully!</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(successAlert)
-      
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        if (successAlert && successAlert.parentNode) {
-          successAlert.remove()
-        }
-      }, 3000)
+      createStyledAlert('success', 'Success!', 'Vehicle updated successfully!')
     },
     onError: (error) => {
-      // Show error message
-      const errorAlert = document.createElement('div')
-      errorAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      errorAlert.style.zIndex = '9999'
-      errorAlert.style.minWidth = '300px'
-      errorAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i>
-          <strong>Error!</strong>
-        </div>
-        <div class="mt-2">Failed to update vehicle: ${error.response?.data?.detail || error.message}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(errorAlert)
-      
-      // Auto dismiss after 5 seconds
-      setTimeout(() => {
-        if (errorAlert && errorAlert.parentNode) {
-          errorAlert.remove()
-        }
-      }, 5000)
+      createStyledAlert('error', 'Error!', `Failed to update vehicle: ${error.response?.data?.detail || error.message}`, 5000)
+    }
+  })
+
+  // Delete mutations
+  const deleteStaffMutation = useMutation({
+    mutationFn: async (userId) => {
+      return api.delete(`/staff/${userId}/`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['staff'])
+      createStyledAlert('success', 'Success!', 'Staff member deleted successfully!')
+    },
+    onError: (error) => {
+      createStyledAlert('error', 'Error!', `Failed to delete staff member: ${error.response?.data?.detail || error.message}`, 5000)
+    }
+  })
+
+  const deleteDriverMutation = useMutation({
+    mutationFn: async (userId) => {
+      return api.delete(`/drivers/${userId}/`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['drivers'])
+      createStyledAlert('success', 'Success!', 'Driver deleted successfully!')
+    },
+    onError: (error) => {
+      createStyledAlert('error', 'Error!', `Failed to delete driver: ${error.response?.data?.detail || error.message}`, 5000)
+    }
+  })
+
+  const deleteVehicleMutation = useMutation({
+    mutationFn: async (vehicleId) => {
+      return api.delete(`/vehicles/${vehicleId}/`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['vehicles'])
+      createStyledAlert('success', 'Success!', 'Vehicle deleted successfully!')
+    },
+    onError: (error) => {
+      createStyledAlert('error', 'Error!', `Failed to delete vehicle: ${error.response?.data?.detail || error.message}`, 5000)
     }
   })
 
@@ -296,7 +247,7 @@ export default function AdminEmployees() {
       
       // Add password for new users
       if (modalType === 'create') {
-        userData.password = formData.get('password')
+        userData.password = activeTab === 'staff' ? 'staffpassword' : 'driverpassword'
         createUserMutation.mutate(userData)
       } else {
         updateUserMutation.mutate({ userId: currentItem.id, userData })
@@ -409,15 +360,11 @@ export default function AdminEmployees() {
             />
           </div>
           {modalType === 'create' && (
-            <div className="mb-3">
-              <label className="form-label">Password</label>
-              <input 
-                type="password" 
-                className="form-control" 
-                name="password" 
-                required 
-              />
-            </div>
+            <input 
+              type="hidden" 
+              name="password" 
+              value={activeTab === 'staff' ? 'staffpassword' : 'driverpassword'} 
+            />
           )}
         </>
       )
@@ -439,55 +386,55 @@ export default function AdminEmployees() {
             </tr>
           </thead>
           <tbody>
-            {Array.isArray(staff) && staff.map(user => (
-              <tr key={user.id}>
-                <td>{user.username}</td>
-                <td>{user.first_name} {user.last_name}</td>
-                <td>{user.email}</td>
-                <td>{user.phone || 'N/A'}</td>
-                <td>
-                  <div className="d-flex gap-2">
-                    <button 
-                      className="btn btn-primary btn-sm"
-                      onClick={() => openEditModal(user)}
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button 
-                      className="btn btn-danger btn-sm"
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this user?')) {
-                          // TODO: Implement user deletion
-                          // Show error message
-                          const errorAlert = document.createElement('div')
-                          errorAlert.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3'
-                          errorAlert.style.zIndex = '9999'
-                          errorAlert.style.minWidth = '300px'
-                          errorAlert.innerHTML = `
-                            <div class="d-flex align-items-center gap-2">
-                              <i class="bi bi-exclamation-triangle-fill"></i>
-                              <strong>Not Implemented!</strong>
-                            </div>
-                            <div class="mt-2">User deletion not implemented yet</div>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                          `
-                          document.body.appendChild(errorAlert)
-                          
-                          // Auto dismiss after 3 seconds
-                          setTimeout(() => {
-                            if (errorAlert && errorAlert.parentNode) {
-                              errorAlert.remove()
-                            }
-                          }, 3000)
-                        }
-                      }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {Array.from({ length: itemsPerPage }).map((_, index) => {
+              // If we have a user for this index, display it
+              if (index < currentStaff.length) {
+                const user = currentStaff[index];
+                return (
+                  <tr key={user.id} style={{ height: '80px' }}>
+                    <td>{user.username}</td>
+                    <td>{user.first_name} {user.last_name}</td>
+                    <td>{user.email}</td>
+                    <td>{user.phone || 'N/A'}</td>
+                    <td>
+                      <div className="d-flex gap-2">
+                        <button 
+                          className="btn btn-primary btn-sm"
+                          onClick={() => openEditModal(user)}
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button 
+                          className="btn btn-danger btn-sm"
+                          onClick={() => {
+                            setConfirmation({
+                              isOpen: true,
+                              title: 'Confirm Deletion',
+                              message: 'Are you sure you want to delete this staff member?',
+                              onConfirm: () => deleteStaffMutation.mutate(user.id)
+                            });
+                          }}
+                          disabled={deleteStaffMutation.isLoading}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }
+              
+              // For empty rows, show placeholder content
+              return (
+                <tr key={`empty-${index}`} style={{ height: '80px' }}>
+                  <td colSpan="5" className="text-center py-4">
+                    {currentStaff.length === 0 && index === 0 && (!staff || staff.length === 0) && (
+                      'No staff members found.'
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )
@@ -504,55 +451,55 @@ export default function AdminEmployees() {
             </tr>
           </thead>
           <tbody>
-            {Array.isArray(drivers) && drivers.map(user => (
-              <tr key={user.id}>
-                <td>{user.username}</td>
-                <td>{user.first_name} {user.last_name}</td>
-                <td>{user.email}</td>
-                <td>{user.phone || 'N/A'}</td>
-                <td>
-                  <div className="d-flex gap-2">
-                    <button 
-                      className="btn btn-primary btn-sm"
-                      onClick={() => openEditModal(user)}
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button 
-                      className="btn btn-danger btn-sm"
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this user?')) {
-                          // TODO: Implement user deletion
-                          // Show error message
-                          const errorAlert = document.createElement('div')
-                          errorAlert.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3'
-                          errorAlert.style.zIndex = '9999'
-                          errorAlert.style.minWidth = '300px'
-                          errorAlert.innerHTML = `
-                            <div class="d-flex align-items-center gap-2">
-                              <i class="bi bi-exclamation-triangle-fill"></i>
-                              <strong>Not Implemented!</strong>
-                            </div>
-                            <div class="mt-2">User deletion not implemented yet</div>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                          `
-                          document.body.appendChild(errorAlert)
-                          
-                          // Auto dismiss after 3 seconds
-                          setTimeout(() => {
-                            if (errorAlert && errorAlert.parentNode) {
-                              errorAlert.remove()
-                            }
-                          }, 3000)
-                        }
-                      }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {Array.from({ length: itemsPerPage }).map((_, index) => {
+              // If we have a user for this index, display it
+              if (index < currentDrivers.length) {
+                const user = currentDrivers[index];
+                return (
+                  <tr key={user.id} style={{ height: '80px' }}>
+                    <td>{user.username}</td>
+                    <td>{user.first_name} {user.last_name}</td>
+                    <td>{user.email}</td>
+                    <td>{user.phone || 'N/A'}</td>
+                    <td>
+                      <div className="d-flex gap-2">
+                        <button 
+                          className="btn btn-primary btn-sm"
+                          onClick={() => openEditModal(user)}
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button 
+                          className="btn btn-danger btn-sm"
+                          onClick={() => {
+                            setConfirmation({
+                              isOpen: true,
+                              title: 'Confirm Deletion',
+                              message: 'Are you sure you want to delete this driver?',
+                              onConfirm: () => deleteDriverMutation.mutate(user.id)
+                            });
+                          }}
+                          disabled={deleteDriverMutation.isLoading}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }
+              
+              // For empty rows, show placeholder content
+              return (
+                <tr key={`empty-${index}`} style={{ height: '80px' }}>
+                  <td colSpan="5" className="text-center py-4">
+                    {currentDrivers.length === 0 && index === 0 && (!drivers || drivers.length === 0) && (
+                      'No drivers found.'
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )
@@ -568,59 +515,59 @@ export default function AdminEmployees() {
             </tr>
           </thead>
           <tbody>
-            {Array.isArray(vehicles) && vehicles.map(vehicle => {
-              return (
-                <tr key={vehicle.id}>
-                  <td>{vehicle.name}</td>
-                  <td>{vehicle.plate_number}</td>
-                  <td>{vehicle.stock_limit}</td>
-                  <td>
-                    <div className="d-flex gap-2">
-                      <button 
-                        className="btn btn-primary btn-sm"
-                        onClick={() => {
-                          setModalType('edit')
-                          setCurrentItem(vehicle)
-                          setShowModal(true)
-                        }}
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button 
-                        className="btn btn-danger btn-sm"
-                        onClick={() => {
-                          if (window.confirm('Are you sure you want to delete this vehicle?')) {
-                            // TODO: Implement vehicle deletion
-                            // Show error message
-                            const errorAlert = document.createElement('div')
-                            errorAlert.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3'
-                            errorAlert.style.zIndex = '9999'
-                            errorAlert.style.minWidth = '300px'
-                            errorAlert.innerHTML = `
-                              <div class="d-flex align-items-center gap-2">
-                                <i class="bi bi-exclamation-triangle-fill"></i>
-                                <strong>Not Implemented!</strong>
-                              </div>
-                              <div class="mt-2">Vehicle deletion not implemented yet</div>
-                              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            `
-                            document.body.appendChild(errorAlert)
-                            
-                            // Auto dismiss after 3 seconds
-                            setTimeout(() => {
-                              if (errorAlert && errorAlert.parentNode) {
-                                errorAlert.remove()
+            {Array.from({ length: itemsPerPage }).map((_, index) => {
+              // If we have a vehicle for this index, display it
+              if (index < currentVehicles.length) {
+                const vehicle = currentVehicles[index];
+                return (
+                  <tr key={vehicle.id} style={{ height: '80px' }}>
+                    <td>{vehicle.name}</td>
+                    <td>{vehicle.plate_number}</td>
+                    <td>{vehicle.stock_limit}</td>
+                    <td>
+                      <div className="d-flex gap-2">
+                        <button 
+                          className="btn btn-primary btn-sm"
+                          onClick={() => {
+                            setModalType('edit')
+                            setCurrentItem(vehicle)
+                            setShowModal(true)
+                          }}
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button 
+                          className="btn btn-danger btn-sm"
+                          onClick={() => {
+                            setConfirmation({
+                              isOpen: true,
+                              title: 'Confirm Deletion',
+                              message: 'Are you sure you want to delete this vehicle?',
+                              onConfirm: () => {
+                                // TODO: Implement vehicle deletion
+                                createStyledAlert('warning', 'Not Implemented!', 'Vehicle deletion not implemented yet')
                               }
-                            }, 3000)
-                          }
-                        }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                            });
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }
+              
+              // For empty rows, show placeholder content
+              return (
+                <tr key={`empty-${index}`} style={{ height: '80px' }}>
+                  <td colSpan="4" className="text-center py-4">
+                    {currentVehicles.length === 0 && index === 0 && (!vehicles || vehicles.length === 0) && (
+                      'No vehicles found.'
+                    )}
                   </td>
                 </tr>
-              )
+              );
             })}
           </tbody>
         </table>
@@ -688,11 +635,54 @@ export default function AdminEmployees() {
         {/* Table */}
         <div className="card border-0 shadow-sm">
           <div className="card-body p-0">
-            <div className="table-responsive">
+            <div className="table-responsive" style={{ minHeight: '450px' }}>
               {renderTable()}
+              
+              {/* Pagination */}
+              {renderPagination()}
             </div>
           </div>
         </div>
+
+        {/* Confirmation Modal */}
+        {confirmation.isOpen && (
+          <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10000 }}>
+            <div className="modal-dialog">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">{confirmation.title}</h5>
+                  <button 
+                    type="button" 
+                    className="btn-close" 
+                    onClick={() => setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null })}
+                  ></button>
+                </div>
+                <div className="modal-body">
+                  <p>{confirmation.message}</p>
+                </div>
+                <div className="modal-footer">
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null })}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-danger"
+                    onClick={() => {
+                      if (confirmation.onConfirm) confirmation.onConfirm();
+                      setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null });
+                    }}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal */}
         {showModal && (

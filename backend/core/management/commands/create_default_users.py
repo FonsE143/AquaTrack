@@ -18,8 +18,7 @@ def ensure_profile(user, role, first_name='', last_name='', phone='', address_st
         municipality, _ = Municipality.objects.get_or_create(name='Default Municipality')
         barangay, _ = Barangay.objects.get_or_create(
             municipality=municipality,
-            name='Default Barangay',
-            defaults={'street_house_number': address_street}
+            name='Default Barangay'
         )
         address, _ = Address.objects.get_or_create(
             barangay=barangay,

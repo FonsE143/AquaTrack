@@ -1,9 +1,10 @@
 // src/pages/driver/Deliveries.jsx
 import AppShell from '../../components/AppShell'
 import { Sidebar } from '../../components/Sidebar'
-import { Package, MapPin, Play, CheckCircle, X } from 'lucide-react'
+import { Package, MapPin, Play, CheckCircle, X, Truck } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
+import { createStyledAlert } from '../../utils/alertHelper'
 
 export default function DriverDeliveries() {
   const items = [
@@ -19,6 +20,20 @@ export default function DriverDeliveries() {
     queryFn: async () => (await api.get('/deliveries/my-deliveries/')).data.results || (await api.get('/deliveries/my-deliveries/')).data || [],
   })
 
+  // Fetch driver's deployment
+  const { data: myDeployment } = useQuery({
+    queryKey: ['my-deployment'],
+    queryFn: async () => {
+      try {
+        const response = await api.get('/deployments/my-deployment/')
+        return response.data
+      } catch (error) {
+        console.error('Error fetching deployment:', error)
+        return null
+      }
+    },
+  })
+
   // Mutation for updating delivery status
   const updateDeliveryStatus = useMutation({
     mutationFn: async ({ deliveryId, status }) => {
@@ -26,10 +41,10 @@ export default function DriverDeliveries() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['my-deliveries'])
-      alert('Delivery status updated successfully!')
+      createStyledAlert('success', 'Delivery Updated', 'Delivery status updated successfully!')
     },
     onError: (error) => {
-      alert('Failed to update delivery status: ' + (error.response?.data?.detail || error.message))
+      createStyledAlert('error', 'Update Failed', 'Failed to update delivery status: ' + (error.response?.data?.detail || error.message))
     }
   })
 
@@ -77,9 +92,45 @@ export default function DriverDeliveries() {
               <Package className="text-primary" size={24} />
               <h1 className="h3 m-0">My Deliveries</h1>
             </div>
-            <p className="text-muted mb-0">Checklist of customer orders within your route</p>
+            <p className="text-muted mb-0">List of customer orders within your route</p>
           </div>
         </div>
+
+        {/* Deployment Info */}
+        {myDeployment && (
+          <div className="row g-4 mb-4">
+            <div className="col-12">
+              <div className="card border-0 shadow-sm">
+                <div className="card-header bg-white border-0 py-3">
+                  <div className="d-flex align-items-center gap-2">
+                    <Truck className="text-primary" size={20} />
+                    <h5 className="mb-0">Current Deployment</h5>
+                  </div>
+                </div>
+                <div className="card-body">
+                  <div className="row g-3">
+                    <div className="col-md-3">
+                      <div className="small text-muted">Product</div>
+                      <div className="fw-medium">{myDeployment.product_name || 'N/A'}</div>
+                    </div>
+                    <div className="col-md-3">
+                      <div className="small text-muted">Stock</div>
+                      <div className="fw-medium">{myDeployment.stock || 0} units</div>
+                    </div>
+                    <div className="col-md-3">
+                      <div className="small text-muted">Route</div>
+                      <div className="fw-medium">Route {myDeployment.route_number || 'N/A'}</div>
+                    </div>
+                    <div className="col-md-3">
+                      <div className="small text-muted">Vehicle</div>
+                      <div className="fw-medium">{myDeployment.vehicle_name || 'N/A'} ({myDeployment.vehicle_plate_number || 'N/A'})</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="d-flex align-items-center justify-content-center py-5">

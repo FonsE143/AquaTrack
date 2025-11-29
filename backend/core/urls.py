@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from core.api.views import (
     ProductViewSet, OrderViewSet, DeliveryViewSet,
     CustomerViewSet, StaffViewSet, ReportViewSet,
-    NotificationViewSet, MeView, DriverViewSet, ActivityLogViewSet, OrderHistoryViewSet, CancelledOrderViewSet, ProfileViewSet,
+    NotificationViewSet, MeView, DriverViewSet, ActivityLogViewSet, OrderHistoryViewSet, CancelledOrderViewSet, ProfileViewSet, UsersViewSet,
     MunicipalityViewSet, BarangayViewSet, AddressViewSet, WalkInOrderViewSet, RouteViewSet, VehicleViewSet, DeploymentViewSet
 )
 from core.api.export import export_customers, export_staff, export_products
@@ -30,6 +30,7 @@ router.register(r'walk-in-orders', WalkInOrderViewSet, basename='walk-in-orders'
 router.register(r'routes', RouteViewSet, basename='routes')
 router.register(r'vehicles', VehicleViewSet, basename='vehicles')
 router.register(r'deployments', DeploymentViewSet, basename='deployments')
+router.register(r'users', UsersViewSet, basename='users')
 
 urlpatterns = [
     path('api/', include(router.urls)),

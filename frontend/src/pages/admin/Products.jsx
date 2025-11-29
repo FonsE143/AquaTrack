@@ -5,6 +5,7 @@ import { Sidebar } from '../../components/Sidebar';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { Plus, Trash2, Edit3, Package } from 'lucide-react';
+import { createStyledAlert } from '../../utils/alertHelper';
 
 export default function AdminProducts() {
   const queryClient = useQueryClient();
@@ -15,6 +16,14 @@ export default function AdminProducts() {
     price: '',
     liters: ''
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [confirmation, setConfirmation] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null
+  });
+  const itemsPerPage = 5;
 
   const items = [
     { label: 'Dashboard', href: '/admin/dashboard' },
@@ -43,50 +52,10 @@ export default function AdminProducts() {
       setShowAddForm(false);
       setFormData({ name: '', price: '', liters: '' });
       
-      // Show success message
-      const successAlert = document.createElement('div');
-      successAlert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
-      successAlert.style.zIndex = '9999';
-      successAlert.style.minWidth = '300px';
-      successAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-check-circle-fill"></i>
-          <strong>Success!</strong>
-        </div>
-        <div class="mt-2">Product created successfully!</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-      document.body.appendChild(successAlert);
-      
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        if (successAlert && successAlert.parentNode) {
-          successAlert.remove();
-        }
-      }, 3000);
+      createStyledAlert('success', 'Success!', 'Product created successfully!');
     },
     onError: (error) => {
-      // Show error message
-      const errorAlert = document.createElement('div');
-      errorAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 end-0 m-3';
-      errorAlert.style.zIndex = '9999';
-      errorAlert.style.minWidth = '300px';
-      errorAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i>
-          <strong>Error!</strong>
-        </div>
-        <div class="mt-2">Failed to create product: ${error.response?.data?.detail || error.message}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-      document.body.appendChild(errorAlert);
-      
-      // Auto dismiss after 5 seconds
-      setTimeout(() => {
-        if (errorAlert && errorAlert.parentNode) {
-          errorAlert.remove();
-        }
-      }, 5000);
+      createStyledAlert('error', 'Error!', `Failed to create product: ${error.response?.data?.detail || error.message}`, 5000);
     }
   });
 
@@ -98,50 +67,10 @@ export default function AdminProducts() {
       setEditingProduct(null);
       setFormData({ name: '', price: '', liters: '' });
       
-      // Show success message
-      const successAlert = document.createElement('div');
-      successAlert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
-      successAlert.style.zIndex = '9999';
-      successAlert.style.minWidth = '300px';
-      successAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-check-circle-fill"></i>
-          <strong>Success!</strong>
-        </div>
-        <div class="mt-2">Product updated successfully!</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-      document.body.appendChild(successAlert);
-      
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        if (successAlert && successAlert.parentNode) {
-          successAlert.remove();
-        }
-      }, 3000);
+      createStyledAlert('success', 'Success!', 'Product updated successfully!');
     },
     onError: (error) => {
-      // Show error message
-      const errorAlert = document.createElement('div');
-      errorAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 end-0 m-3';
-      errorAlert.style.zIndex = '9999';
-      errorAlert.style.minWidth = '300px';
-      errorAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i>
-          <strong>Error!</strong>
-        </div>
-        <div class="mt-2">Failed to update product: ${error.response?.data?.detail || error.message}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-      document.body.appendChild(errorAlert);
-      
-      // Auto dismiss after 5 seconds
-      setTimeout(() => {
-        if (errorAlert && errorAlert.parentNode) {
-          errorAlert.remove();
-        }
-      }, 5000);
+      createStyledAlert('error', 'Error!', `Failed to update product: ${error.response?.data?.detail || error.message}`, 5000);
     }
   });
 
@@ -151,50 +80,10 @@ export default function AdminProducts() {
     onSuccess: () => {
       queryClient.invalidateQueries(['products']);
       
-      // Show success message
-      const successAlert = document.createElement('div');
-      successAlert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
-      successAlert.style.zIndex = '9999';
-      successAlert.style.minWidth = '300px';
-      successAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-check-circle-fill"></i>
-          <strong>Success!</strong>
-        </div>
-        <div class="mt-2">Product deleted successfully!</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-      document.body.appendChild(successAlert);
-      
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        if (successAlert && successAlert.parentNode) {
-          successAlert.remove();
-        }
-      }, 3000);
+      createStyledAlert('success', 'Success!', 'Product deleted successfully!');
     },
     onError: (error) => {
-      // Show error message
-      const errorAlert = document.createElement('div');
-      errorAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 end-0 m-3';
-      errorAlert.style.zIndex = '9999';
-      errorAlert.style.minWidth = '300px';
-      errorAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i>
-          <strong>Error!</strong>
-        </div>
-        <div class="mt-2">Failed to delete product: ${error.response?.data?.detail || error.message}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `;
-      document.body.appendChild(errorAlert);
-      
-      // Auto dismiss after 5 seconds
-      setTimeout(() => {
-        if (errorAlert && errorAlert.parentNode) {
-          errorAlert.remove();
-        }
-      }, 5000);
+      createStyledAlert('error', 'Error!', `Failed to delete product: ${error.response?.data?.detail || error.message}`, 5000);
     }
   });
 
@@ -227,9 +116,65 @@ export default function AdminProducts() {
   };
 
   const handleDelete = (productId) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      deleteProductMutation.mutate(productId);
+    setConfirmation({
+      isOpen: true,
+      title: 'Confirm Deletion',
+      message: 'Are you sure you want to delete this product?',
+      onConfirm: () => deleteProductMutation.mutate(productId)
+    });
+  };
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentProducts = products ? products.slice(indexOfFirstItem, indexOfLastItem) : [];
+  const totalPages = products ? Math.ceil(products.length / itemsPerPage) : 0;
+
+  // Pagination component
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+    
+    const pageNumbers = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pageNumbers.push(i);
     }
+    
+    return (
+      <div className="d-flex justify-content-center mt-3">
+        <nav>
+          <ul className="pagination">
+            <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              >
+                Previous
+              </button>
+            </li>
+            
+            {pageNumbers.map(number => (
+              <li key={number} className={`page-item ${currentPage === number ? 'active' : ''}`}>
+                <button 
+                  className="page-link" 
+                  onClick={() => setCurrentPage(number)}
+                >
+                  {number}
+                </button>
+              </li>
+            ))}
+            
+            <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              >
+                Next
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    );
   };
 
   const handleSubmit = (e) => {
@@ -355,6 +300,46 @@ export default function AdminProducts() {
           </div>
         ) : null}
 
+        {/* Confirmation Modal */}
+        {confirmation.isOpen && (
+          <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10000 }}>
+            <div className="modal-dialog">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">{confirmation.title}</h5>
+                  <button 
+                    type="button" 
+                    className="btn-close" 
+                    onClick={() => setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null })}
+                  ></button>
+                </div>
+                <div className="modal-body">
+                  <p>{confirmation.message}</p>
+                </div>
+                <div className="modal-footer">
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null })}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-danger"
+                    onClick={() => {
+                      if (confirmation.onConfirm) confirmation.onConfirm();
+                      setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null });
+                    }}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Products Table */}
         <div className="card border-0 shadow-sm">
           <div className="card-body">
@@ -369,7 +354,7 @@ export default function AdminProducts() {
                 Error loading products. Please try again.
               </div>
             ) : (
-              <div className="table-responsive">
+              <div className="table-responsive" style={{ minHeight: '450px' }}>
                 <table className="table table-hover">
                   <thead>
                     <tr>
@@ -380,40 +365,52 @@ export default function AdminProducts() {
                     </tr>
                   </thead>
                   <tbody>
-                    {products && products.length > 0 ? (
-                      products.map((product) => (
-                        <tr key={product.id}>
-                          <td>{product.name}</td>
-                          <td>₱{parseFloat(product.price).toFixed(2)}</td>
-                          <td>{parseFloat(product.liters).toFixed(2)} L</td>
-                          <td>
-                            <div className="d-flex gap-2">
-                              <button 
-                                className="btn btn-primary btn-sm"
-                                onClick={() => handleEdit(product)}
-                              >
-                                <Edit3 size={16} />
-                              </button>
-                              <button 
-                                className="btn btn-danger btn-sm"
-                                onClick={() => handleDelete(product.id)}
-                                disabled={deleteProductMutation.isLoading}
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
+                    {Array.from({ length: itemsPerPage }).map((_, index) => {
+                      // If we have a product for this index, display it
+                      if (index < currentProducts.length) {
+                        const product = currentProducts[index];
+                        return (
+                          <tr key={product.id} style={{ height: '80px' }}>
+                            <td>{product.name}</td>
+                            <td>₱{parseFloat(product.price).toFixed(2)}</td>
+                            <td>{parseFloat(product.liters).toFixed(2)} L</td>
+                            <td>
+                              <div className="d-flex gap-2">
+                                <button 
+                                  className="btn btn-primary btn-sm"
+                                  onClick={() => handleEdit(product)}
+                                >
+                                  <Edit3 size={16} />
+                                </button>
+                                <button 
+                                  className="btn btn-danger btn-sm"
+                                  onClick={() => handleDelete(product.id)}
+                                  disabled={deleteProductMutation.isLoading}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }
+                      
+                      // For empty rows, show placeholder content
+                      return (
+                        <tr key={`empty-${index}`} style={{ height: '80px' }}>
+                          <td colSpan="4" className="text-center py-4">
+                            {currentProducts.length === 0 && index === 0 && (!products || products.length === 0) && (
+                              'No products found. Add a new product to get started.'
+                            )}
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="4" className="text-center">
-                          No products found. Add a new product to get started.
-                        </td>
-                      </tr>
-                    )}
+                      );
+                    })}
                   </tbody>
                 </table>
+                
+                {/* Pagination */}
+                {renderPagination()}
               </div>
             )}
           </div>

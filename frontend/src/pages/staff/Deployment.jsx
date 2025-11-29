@@ -1,7 +1,7 @@
 // src/pages/staff/Deployment.jsx
 import AppShell from '../../components/AppShell'
 import { Sidebar } from '../../components/Sidebar'
-import { Truck, MapPin, User, Package, Plus } from 'lucide-react'
+import { Truck, MapPin, User, Package, Plus, Edit, Trash2 } from 'lucide-react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useState } from 'react'
@@ -16,6 +16,7 @@ export default function StaffDeployment() {
 
   const queryClient = useQueryClient()
   const [formData, setFormData] = useState({
+    id: null,
     driver: '',
     vehicle: '',
     route: '',
@@ -23,6 +24,7 @@ export default function StaffDeployment() {
     stock: ''
   })
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'info' })
+  const [isEditing, setIsEditing] = useState(false)
 
   // Fetch deployment data
   const { data: deployments, isLoading: deploymentsLoading, error } = useQuery({
@@ -82,11 +84,14 @@ export default function StaffDeployment() {
     },
   })
 
-  // Mutation for creating deployment
-  const createDeploymentMutation = useMutation({
+  // Mutation for creating/updating deployment
+  const createUpdateDeploymentMutation = useMutation({
     mutationFn: async (deploymentData) => {
-      console.log('Sending deployment data:', deploymentData);
-      return api.post('/deployments/', deploymentData)
+      if (isEditing) {
+        return api.patch(`/deployments/${deploymentData.id}/`, deploymentData)
+      } else {
+        return api.post('/deployments/', deploymentData)
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['deployments'])
@@ -94,23 +99,25 @@ export default function StaffDeployment() {
       setModal({
         isOpen: true,
         title: 'Success',
-        message: 'Deployment created successfully!',
+        message: isEditing ? 'Deployment updated successfully!' : 'Deployment created successfully!',
         type: 'success'
       })
       
       // Reset form
       setFormData({
+        id: null,
         driver: '',
         vehicle: '',
         route: '',
         product: '',
         stock: ''
       })
+      setIsEditing(false)
     },
     onError: (error) => {
-      console.error('Deployment creation error:', error);
+      console.error('Deployment error:', error);
       console.error('Error response:', error.response);
-      let errorMsg = 'Failed to create deployment. ';
+      let errorMsg = isEditing ? 'Failed to update deployment. ' : 'Failed to create deployment. ';
       
       // Extract detailed error information
       if (error.response?.data) {
@@ -138,6 +145,30 @@ export default function StaffDeployment() {
         isOpen: true,
         title: 'Error',
         message: errorMsg,
+        type: 'error'
+      })
+    }
+  })
+
+  // Mutation for deleting deployment
+  const deleteDeploymentMutation = useMutation({
+    mutationFn: async (deploymentId) => {
+      return api.delete(`/deployments/${deploymentId}/`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['deployments'])
+      setModal({
+        isOpen: true,
+        title: 'Success',
+        message: 'Deployment deleted successfully!',
+        type: 'success'
+      })
+    },
+    onError: (error) => {
+      setModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Failed to delete deployment: ' + (error.response?.data?.detail || error.message),
         type: 'error'
       })
     }
@@ -189,13 +220,47 @@ export default function StaffDeployment() {
       return
     }
     
-    createDeploymentMutation.mutate({
+    createUpdateDeploymentMutation.mutate({
+      id: formData.id,
       driver: formData.driver,
       vehicle: formData.vehicle,
       route: formData.route,
       product: formData.product,
       stock: stockValue
     })
+  }
+
+  // Handle edit deployment
+  const handleEditDeployment = (deployment) => {
+    setFormData({
+      id: deployment.id,
+      driver: deployment.driver.toString(),
+      vehicle: deployment.vehicle.toString(),
+      route: deployment.route.toString(),
+      product: deployment.product.toString(),
+      stock: deployment.stock.toString()
+    })
+    setIsEditing(true)
+  }
+
+  // Handle delete deployment
+  const handleDeleteDeployment = (deploymentId) => {
+    if (confirm('Are you sure you want to delete this deployment?')) {
+      deleteDeploymentMutation.mutate(deploymentId)
+    }
+  }
+
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    setFormData({
+      id: null,
+      driver: '',
+      vehicle: '',
+      route: '',
+      product: '',
+      stock: ''
+    })
+    setIsEditing(false)
   }
 
   const closeModal = () => {
@@ -237,6 +302,7 @@ export default function StaffDeployment() {
                         <th className="d-none d-md-table-cell">Product</th>
                         <th>Stock</th>
                         <th>Date</th>
+                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -269,11 +335,30 @@ export default function StaffDeployment() {
                               <span className="d-md-none text-muted small">Route {deployment.route_number || 'N/A'}</span>
                             </div>
                           </td>
+                          <td>
+                            <div className="d-flex gap-2">
+                              <button 
+                                className="btn btn-primary btn-sm"
+                                onClick={() => handleEditDeployment(deployment)}
+                                title="Edit deployment"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button 
+                                className="btn btn-danger btn-sm"
+                                onClick={() => handleDeleteDeployment(deployment.id)}
+                                title="Delete deployment"
+                                disabled={deleteDeploymentMutation.isLoading}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                       {(!Array.isArray(deployments) || deployments.length === 0) && (
                         <tr>
-                          <td colSpan="6" className="text-center">
+                          <td colSpan="7" className="text-center">
                             No deployments found
                           </td>
                         </tr>
@@ -290,8 +375,17 @@ export default function StaffDeployment() {
             <div className="card border-0 shadow-sm h-100">
               <div className="card-header bg-white border-0 py-3">
                 <div className="d-flex align-items-center gap-2">
-                  <Plus className="text-success" size={20} />
-                  <h5 className="mb-0">New Deployment</h5>
+                  {isEditing ? (
+                    <>
+                      <Edit className="text-warning" size={20} />
+                      <h5 className="mb-0">Edit Deployment</h5>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="text-success" size={20} />
+                      <h5 className="mb-0">New Deployment</h5>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="card-body">
@@ -382,23 +476,34 @@ export default function StaffDeployment() {
                     <small className="text-muted">Must not exceed vehicle stock limit</small>
                   </div>
 
-                  <button 
-                    type="submit" 
-                    className="btn btn-success w-100 d-flex align-items-center justify-content-center gap-2"
-                    disabled={createDeploymentMutation.isLoading}
-                  >
-                    {createDeploymentMutation.isLoading ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <Plus size={16} />
-                        Create Deployment
-                      </>
+                  <div className="d-flex gap-2">
+                    <button 
+                      type="submit" 
+                      className={`btn ${isEditing ? 'btn-warning' : 'btn-success'} w-100 d-flex align-items-center justify-content-center gap-2`}
+                      disabled={createUpdateDeploymentMutation.isLoading}
+                    >
+                      {createUpdateDeploymentMutation.isLoading ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                          {isEditing ? 'Updating...' : 'Creating...'}
+                        </>
+                      ) : (
+                        <>
+                          {isEditing ? <Edit size={16} /> : <Plus size={16} />}
+                          {isEditing ? 'Update Deployment' : 'Create Deployment'}
+                        </>
+                      )}
+                    </button>
+                    {isEditing && (
+                      <button 
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={handleCancelEdit}
+                      >
+                        Cancel
+                      </button>
                     )}
-                  </button>
+                  </div>
                 </form>
               </div>
             </div>

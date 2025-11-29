@@ -90,6 +90,7 @@ class Vehicle(models.Model):
         return f"{self.name} ({self.plate_number})"
 
 class Deployment(models.Model):
+    deployment_id = models.BigIntegerField(unique=True, blank=True, null=True)
     driver = models.ForeignKey(Profile, on_delete=models.CASCADE, limit_choices_to={'role': 'driver'})
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE)
     route = models.ForeignKey(Route, on_delete=models.CASCADE)
@@ -98,7 +99,7 @@ class Deployment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
-        return f"Deployment: {self.driver} - {self.vehicle} - {self.route}"
+        return f"Deployment {self.deployment_id}: {self.driver} - {self.vehicle} - {self.route}"
     
     def clean(self):
         # Check if stock exceeds vehicle limit
@@ -115,6 +116,16 @@ class Deployment(models.Model):
             pass
 
     def save(self, *args, **kwargs):
+        # Generate deployment_id if it's a new deployment
+        if not self.deployment_id:
+            # Generate a simple numeric deployment ID
+            from django.utils import timezone
+            import random
+            # Use last 6 digits of timestamp + 3 random digits
+            timestamp_part = int(timezone.now().timestamp()) % 1000000
+            random_part = random.randint(100, 999)
+            self.deployment_id = int(f'{timestamp_part}{random_part}')
+        
         self.clean()
         super().save(*args, **kwargs)
 

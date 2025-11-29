@@ -5,6 +5,7 @@ import { Truck, MapPin, Plus, Trash2, Pencil } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useState } from 'react'
+import { createStyledAlert } from '../../utils/alertHelper'
 
 // Barangay Selector Component
 function BarangaySelector({ municipalityId, municipalityName, selectedBarangays, onBarangayChange }) {
@@ -71,6 +72,14 @@ export default function AdminRoute() {
     municipalities: [],
     barangays: {}
   })
+  const [currentPage, setCurrentPage] = useState(1)
+  const [confirmation, setConfirmation] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null
+  })
+  const itemsPerPage = 5
 
   // Fetch route data
   const { data: routes, isLoading: routesLoading } = useQuery({
@@ -99,27 +108,7 @@ export default function AdminRoute() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['routes'])
-      // Show success message
-      const successAlert = document.createElement('div')
-      successAlert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      successAlert.style.zIndex = '9999'
-      successAlert.style.minWidth = '300px'
-      successAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-check-circle-fill"></i>
-          <strong>Success!</strong>
-        </div>
-        <div class="mt-2">Route created successfully!</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(successAlert)
-      
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        if (successAlert && successAlert.parentNode) {
-          successAlert.remove()
-        }
-      }, 3000)
+      createStyledAlert('success', 'Success!', 'Route created successfully!')
       
       setRouteFormData({
         route_number: '',
@@ -129,27 +118,7 @@ export default function AdminRoute() {
       setShowCreateForm(false)
     },
     onError: (error) => {
-      // Show error message
-      const errorAlert = document.createElement('div')
-      errorAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      errorAlert.style.zIndex = '9999'
-      errorAlert.style.minWidth = '300px'
-      errorAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i>
-          <strong>Error!</strong>
-        </div>
-        <div class="mt-2">Failed to create route: ${error.response?.data?.detail || error.message}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(errorAlert)
-      
-      // Auto dismiss after 5 seconds
-      setTimeout(() => {
-        if (errorAlert && errorAlert.parentNode) {
-          errorAlert.remove()
-        }
-      }, 5000)
+      createStyledAlert('error', 'Error!', `Failed to create route: ${error.response?.data?.detail || error.message}`, 5000)
     }
   })
 
@@ -160,50 +129,10 @@ export default function AdminRoute() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['routes'])
-      // Show success message
-      const successAlert = document.createElement('div')
-      successAlert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      successAlert.style.zIndex = '9999'
-      successAlert.style.minWidth = '300px'
-      successAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-check-circle-fill"></i>
-          <strong>Success!</strong>
-        </div>
-        <div class="mt-2">Route deleted successfully!</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(successAlert)
-      
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        if (successAlert && successAlert.parentNode) {
-          successAlert.remove()
-        }
-      }, 3000)
+      createStyledAlert('success', 'Success!', 'Route deleted successfully!')
     },
     onError: (error) => {
-      // Show error message
-      const errorAlert = document.createElement('div')
-      errorAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      errorAlert.style.zIndex = '9999'
-      errorAlert.style.minWidth = '300px'
-      errorAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i>
-          <strong>Error!</strong>
-        </div>
-        <div class="mt-2">Failed to delete route: ${error.response?.data?.detail || error.message}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(errorAlert)
-      
-      // Auto dismiss after 5 seconds
-      setTimeout(() => {
-        if (errorAlert && errorAlert.parentNode) {
-          errorAlert.remove()
-        }
-      }, 5000)
+      createStyledAlert('error', 'Error!', `Failed to delete route: ${error.response?.data?.detail || error.message}`, 5000)
     }
   })
 
@@ -214,27 +143,7 @@ export default function AdminRoute() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['routes'])
-      // Show success message
-      const successAlert = document.createElement('div')
-      successAlert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      successAlert.style.zIndex = '9999'
-      successAlert.style.minWidth = '300px'
-      successAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-check-circle-fill"></i>
-          <strong>Success!</strong>
-        </div>
-        <div class="mt-2">Route updated successfully!</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(successAlert)
-      
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        if (successAlert && successAlert.parentNode) {
-          successAlert.remove()
-        }
-      }, 3000)
+      createStyledAlert('success', 'Success!', 'Route updated successfully!')
       
       setRouteFormData({
         route_number: '',
@@ -245,27 +154,7 @@ export default function AdminRoute() {
       setEditingRoute(null)
     },
     onError: (error) => {
-      // Show error message
-      const errorAlert = document.createElement('div')
-      errorAlert.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      errorAlert.style.zIndex = '9999'
-      errorAlert.style.minWidth = '300px'
-      errorAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i>
-          <strong>Error!</strong>
-        </div>
-        <div class="mt-2">Failed to update route: ${error.response?.data?.detail || error.message}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(errorAlert)
-      
-      // Auto dismiss after 5 seconds
-      setTimeout(() => {
-        if (errorAlert && errorAlert.parentNode) {
-          errorAlert.remove()
-        }
-      }, 5000)
+      createStyledAlert('error', 'Error!', `Failed to update route: ${error.response?.data?.detail || error.message}`, 5000)
     }
   })
 
@@ -274,27 +163,7 @@ export default function AdminRoute() {
     e.preventDefault()
     
     if (!routeFormData.route_number || routeFormData.municipalities.length === 0) {
-      // Show validation error
-      const validationAlert = document.createElement('div')
-      validationAlert.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      validationAlert.style.zIndex = '9999'
-      validationAlert.style.minWidth = '300px'
-      validationAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i>
-          <strong>Validation Error!</strong>
-        </div>
-        <div class="mt-2">Please fill route number and select at least one municipality</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(validationAlert)
-      
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        if (validationAlert && validationAlert.parentNode) {
-          validationAlert.remove()
-        }
-      }, 3000)
+      createStyledAlert('warning', 'Validation Error!', 'Please fill route number and select at least one municipality')
       return
     }
     
@@ -305,27 +174,7 @@ export default function AdminRoute() {
     })
     
     if (allSelectedBarangays.length === 0) {
-      // Show validation error
-      const barangayAlert = document.createElement('div')
-      barangayAlert.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3'
-      barangayAlert.style.zIndex = '9999'
-      barangayAlert.style.minWidth = '300px'
-      barangayAlert.innerHTML = `
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i>
-          <strong>Validation Error!</strong>
-        </div>
-        <div class="mt-2">Please select at least one barangay</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      `
-      document.body.appendChild(barangayAlert)
-      
-      // Auto dismiss after 3 seconds
-      setTimeout(() => {
-        if (barangayAlert && barangayAlert.parentNode) {
-          barangayAlert.remove()
-        }
-      }, 3000)
+      createStyledAlert('warning', 'Validation Error!', 'Please select at least one barangay')
       return
     }
     
@@ -366,6 +215,12 @@ export default function AdminRoute() {
     }))
   }
 
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentRoutes = Array.isArray(routes) ? routes.slice(indexOfFirstItem, indexOfLastItem) : []
+  const totalPages = Array.isArray(routes) ? Math.ceil(routes.length / itemsPerPage) : 0
+
   // Helper function to format barangay names
   const formatBarangayNames = (route) => {
     if (route.barangay_names) {
@@ -373,6 +228,53 @@ export default function AdminRoute() {
     }
     // Fallback if barangay_names is not available
     return route.barangays_detail ? route.barangays_detail.map(b => b.name).join(', ') : 'N/A'
+  }
+
+  // Pagination component
+  const renderPagination = () => {
+    if (totalPages <= 1) return null
+    
+    const pageNumbers = []
+    for (let i = 1; i <= totalPages; i++) {
+      pageNumbers.push(i)
+    }
+    
+    return (
+      <div className="d-flex justify-content-center mt-3">
+        <nav>
+          <ul className="pagination">
+            <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              >
+                Previous
+              </button>
+            </li>
+            
+            {pageNumbers.map(number => (
+              <li key={number} className={`page-item ${currentPage === number ? 'active' : ''}`}>
+                <button 
+                  className="page-link" 
+                  onClick={() => setCurrentPage(number)}
+                >
+                  {number}
+                </button>
+              </li>
+            ))}
+            
+            <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+              <button 
+                className="page-link" 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              >
+                Next
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    )
   }
 
   return (
@@ -502,27 +404,7 @@ export default function AdminRoute() {
                     e.preventDefault()
                     
                     if (!routeFormData.route_number || routeFormData.municipalities.length === 0) {
-                      // Show validation error
-                      const validationAlert = document.createElement('div')
-                      validationAlert.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3'
-                      validationAlert.style.zIndex = '9999'
-                      validationAlert.style.minWidth = '300px'
-                      validationAlert.innerHTML = `
-                        <div class="d-flex align-items-center gap-2">
-                          <i class="bi bi-exclamation-triangle-fill"></i>
-                          <strong>Validation Error!</strong>
-                        </div>
-                        <div class="mt-2">Please fill route number and select at least one municipality</div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                      `
-                      document.body.appendChild(validationAlert)
-                      
-                      // Auto dismiss after 3 seconds
-                      setTimeout(() => {
-                        if (validationAlert && validationAlert.parentNode) {
-                          validationAlert.remove()
-                        }
-                      }, 3000)
+                      createStyledAlert('warning', 'Validation Error!', 'Please fill route number and select at least one municipality')
                       return
                     }
                     
@@ -533,27 +415,7 @@ export default function AdminRoute() {
                     })
                     
                     if (allSelectedBarangays.length === 0) {
-                      // Show validation error
-                      const barangayAlert = document.createElement('div')
-                      barangayAlert.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3'
-                      barangayAlert.style.zIndex = '9999'
-                      barangayAlert.style.minWidth = '300px'
-                      barangayAlert.innerHTML = `
-                        <div class="d-flex align-items-center gap-2">
-                          <i class="bi bi-exclamation-triangle-fill"></i>
-                          <strong>Validation Error!</strong>
-                        </div>
-                        <div class="mt-2">Please select at least one barangay</div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                      `
-                      document.body.appendChild(barangayAlert)
-                      
-                      // Auto dismiss after 3 seconds
-                      setTimeout(() => {
-                        if (barangayAlert && barangayAlert.parentNode) {
-                          barangayAlert.remove()
-                        }
-                      }, 3000)
+                      createStyledAlert('warning', 'Validation Error!', 'Please select at least one barangay')
                       return
                     }
                     
@@ -637,7 +499,7 @@ export default function AdminRoute() {
             </div>
           </div>
           <div className="card-body p-0">
-            <div className="table-responsive">
+            <div className="table-responsive" style={{ minHeight: '450px' }}>
               <table className="table table-hover mb-0">
                 <thead className="table-light">
                   <tr>
@@ -648,85 +510,141 @@ export default function AdminRoute() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.isArray(routes) && routes.map(route => (
-                    <tr key={route.id}>
-                      <td>
-                        <div className="d-flex align-items-center gap-2">
-                          <MapPin size={16} className="text-muted" />
-                          <span>Route {route.route_number}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="d-flex flex-wrap gap-1">
-                          {route.municipalities_detail?.map((municipality, index) => (
-                            <span key={index} className="badge bg-primary-subtle text-primary-emphasis">
-                              {municipality.name}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="d-flex flex-wrap gap-1">
-                          {formatBarangayNames(route).split(', ').map((barangay, index) => (
-                            <span key={index} className="badge bg-secondary-subtle text-secondary-emphasis">
-                              {barangay}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="d-flex gap-2">
-                          <button 
-                            className="btn btn-primary btn-sm"
-                            onClick={() => {
-                              // Set up form for editing
-                              setEditingRoute(route)
-                              
-                              // Prepare barangay selections
-                              const initialBarangays = {}
-                              route.municipalities_detail?.forEach(municipality => {
-                                // Get barangays for this municipality from the route
-                                const municipalityBarangays = route.barangays_detail
-                                  ?.filter(b => b.municipality === municipality.id)
-                                  ?.map(b => b.id.toString()) || []
-                                initialBarangays[municipality.id] = municipalityBarangays
-                              })
-                              
-                              setRouteFormData({
-                                route_number: route.route_number,
-                                municipalities: route.municipalities_detail?.map(m => m.id) || [],
-                                barangays: initialBarangays
-                              })
-                              setShowEditForm(true)
-                            }}
-                          >
-                            <Pencil size={16} />
-                          </button>
-                          <button 
-                            className="btn btn-danger btn-sm"
-                            onClick={() => {
-                              if (window.confirm('Are you sure you want to delete this route?')) {
-                                deleteRouteMutation.mutate(route.id)
-                              }
-                            }}
-                            disabled={deleteRouteMutation.isLoading}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {(!Array.isArray(routes) || routes.length === 0) && (
-                    <tr>
-                      <td colSpan="4" className="text-center">
-                        {routesLoading ? 'Loading...' : 'No routes found'}
-                      </td>
-                    </tr>
-                  )}
+                  {Array.from({ length: itemsPerPage }).map((_, index) => {
+                    // If we have a route for this index, display it
+                    if (index < currentRoutes.length) {
+                      const route = currentRoutes[index];
+                      return (
+                        <tr key={route.id} style={{ height: '80px' }}>
+                          <td>
+                            <div className="d-flex align-items-center gap-2">
+                              <MapPin size={16} className="text-muted" />
+                              <span>Route {route.route_number}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="d-flex flex-wrap gap-1">
+                              {route.municipalities_detail?.map((municipality, idx) => (
+                                <span key={idx} className="badge bg-primary-subtle text-primary-emphasis">
+                                  {municipality.name}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="d-flex flex-wrap gap-1">
+                              {formatBarangayNames(route).split(', ').map((barangay, idx) => (
+                                <span key={idx} className="badge bg-secondary-subtle text-secondary-emphasis">
+                                  {barangay}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="d-flex gap-2">
+                              <button 
+                                className="btn btn-primary btn-sm"
+                                onClick={() => {
+                                  // Set up form for editing
+                                  setEditingRoute(route)
+                                  
+                                  // Prepare barangay selections
+                                  const initialBarangays = {}
+                                  route.municipalities_detail?.forEach(municipality => {
+                                    // Get barangays for this municipality from the route
+                                    const municipalityBarangays = route.barangays_detail
+                                      ?.filter(b => b.municipality === municipality.id)
+                                      ?.map(b => b.id.toString()) || []
+                                    initialBarangays[municipality.id] = municipalityBarangays
+                                  })
+                                  
+                                  setRouteFormData({
+                                    route_number: route.route_number,
+                                    municipalities: route.municipalities_detail?.map(m => m.id) || [],
+                                    barangays: initialBarangays
+                                  })
+                                  setShowEditForm(true)
+                                }}
+                              >
+                                <Pencil size={16} />
+                              </button>
+                              <button 
+                                className="btn btn-danger btn-sm"
+                                onClick={() => {
+                                  setConfirmation({
+                                    isOpen: true,
+                                    title: 'Confirm Deletion',
+                                    message: 'Are you sure you want to delete this route?',
+                                    onConfirm: () => deleteRouteMutation.mutate(route.id)
+                                  });
+                                }}
+                                disabled={deleteRouteMutation.isLoading}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+                    
+                    // For empty rows, show placeholder content
+                    return (
+                      <tr key={`empty-${index}`} style={{ height: '80px' }}>
+                        <td colSpan="4" className="text-center py-4">
+                          {currentRoutes.length === 0 && index === 0 && (!Array.isArray(routes) || routes.length === 0) && (
+                            routesLoading ? 'Loading...' : 'No routes found'
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+            
+            {/* Confirmation Modal */}
+            {confirmation.isOpen && (
+              <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10000 }}>
+                <div className="modal-dialog">
+                  <div className="modal-content">
+                    <div className="modal-header">
+                      <h5 className="modal-title">{confirmation.title}</h5>
+                      <button 
+                        type="button" 
+                        className="btn-close" 
+                        onClick={() => setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null })}
+                      ></button>
+                    </div>
+                    <div className="modal-body">
+                      <p>{confirmation.message}</p>
+                    </div>
+                    <div className="modal-footer">
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        onClick={() => setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null })}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="button" 
+                        className="btn btn-danger"
+                        onClick={() => {
+                          if (confirmation.onConfirm) confirmation.onConfirm();
+                          setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null });
+                        }}
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {renderPagination()}
           </div>
         </div>
       </div>

@@ -7,7 +7,7 @@ from django.db.models import Sum, Count, F, Q
 from django.utils import timezone
 from datetime import timedelta
 from core.models import Product, Order, Delivery, Profile, Notification, OrderHistory, CancelledOrder
-from core.models import ActivityLog, Municipality, Barangay, Address, WalkInOrder, Route, Vehicle, Deployment, User
+from core.models import ActivityLog, Municipality, Barangay, Address, WalkInOrder, Route, Vehicle, Deployment
 from .serializers import (
     ProductSerializer, OrderSerializer, DeliverySerializer, ProfileSerializer, NotificationSerializer,
     ActivityLogSerializer, OrderHistorySerializer, CancelledOrderSerializer,
@@ -270,158 +270,12 @@ class StaffViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         # Only admin can manage staff
         return [IsAuthenticated(), IsRole('admin')]
-    
-    def get_queryset(self):
-        # For listing, we only show staff
-        # For creation, we don't want to filter by role
-        if self.action == 'create':
-            return Profile.objects.all()
-        return super().get_queryset()
-    
-    def create(self, request, *args, **kwargs):
-        # Create user first
-        user_data = {
-            'username': request.data.get('username'),
-            'email': request.data.get('email', ''),
-            'first_name': request.data.get('first_name', ''),
-            'last_name': request.data.get('last_name', ''),
-        }
-        
-        # Set default password for staff
-        user = User.objects.create_user(password='staffpassword', **user_data)
-        
-        # Create profile with staff role
-        profile_data = {
-            'user': user,
-            'role': 'staff',
-            'first_name': user_data['first_name'],
-            'last_name': user_data['last_name'],
-            'phone': request.data.get('phone', ''),
-        }
-        
-        # Handle address if provided
-        municipality_id = request.data.get('municipality')
-        barangay_id = request.data.get('barangay')
-        address_details = request.data.get('address_details')
-        
-        if municipality_id and barangay_id and address_details:
-            try:
-                from core.models import Municipality, Barangay, Address
-                municipality = Municipality.objects.get(id=municipality_id)
-                barangay = Barangay.objects.get(id=barangay_id, municipality=municipality)
-                address = Address.objects.create(
-                    barangay=barangay,
-                    full_address=address_details.strip()
-                )
-                profile_data['address'] = address
-            except Exception as e:
-                pass  # Silently ignore address errors for now
-        
-        profile = Profile.objects.create(**profile_data)
-        
-        # Serialize and return the created profile
-        # We need to manually create the serialized data since the serializer has role as read_only
-        serialized_data = {
-            'id': profile.id,
-            'username': profile.user.username,
-            'role': profile.role,
-            'first_name': profile.first_name,
-            'last_name': profile.last_name,
-            'middle_name': profile.middle_name,
-            'email': profile.user.email,
-            'phone': profile.phone,
-            'address': profile.address.id if profile.address else None,
-            'address_detail': {
-                'id': profile.address.id,
-                'full_address': profile.address.full_address,
-                'barangay': profile.address.barangay.id,
-                'municipality': profile.address.barangay.municipality.id,
-                'barangay_name': profile.address.barangay.name,
-                'municipality_name': profile.address.barangay.municipality.name
-            } if profile.address else None
-        }
-        return Response(serialized_data, status=status.HTTP_201_CREATED)
 
 
-class DriverViewSet(viewsets.ModelViewSet):
+class DriverViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Profile.objects.filter(role='driver')
     serializer_class = ProfileSerializer
     permission_classes = [IsAuthenticated]
-    
-    def get_permissions(self):
-        # Only admin can manage drivers
-        return [IsAuthenticated(), IsRole('admin')]
-    
-    def get_queryset(self):
-        # For listing, we only show drivers
-        # For creation, we don't want to filter by role
-        if self.action == 'create':
-            return Profile.objects.all()
-        return super().get_queryset()
-    
-    def create(self, request, *args, **kwargs):
-        # Create user first
-        user_data = {
-            'username': request.data.get('username'),
-            'email': request.data.get('email', ''),
-            'first_name': request.data.get('first_name', ''),
-            'last_name': request.data.get('last_name', ''),
-        }
-        
-        # Set default password for driver
-        user = User.objects.create_user(password='driverpassword', **user_data)
-        
-        # Create profile with driver role
-        profile_data = {
-            'user': user,
-            'role': 'driver',
-            'first_name': user_data['first_name'],
-            'last_name': user_data['last_name'],
-            'phone': request.data.get('phone', ''),
-        }
-        
-        # Handle address if provided
-        municipality_id = request.data.get('municipality')
-        barangay_id = request.data.get('barangay')
-        address_details = request.data.get('address_details')
-        
-        if municipality_id and barangay_id and address_details:
-            try:
-                from core.models import Municipality, Barangay, Address
-                municipality = Municipality.objects.get(id=municipality_id)
-                barangay = Barangay.objects.get(id=barangay_id, municipality=municipality)
-                address = Address.objects.create(
-                    barangay=barangay,
-                    full_address=address_details.strip()
-                )
-                profile_data['address'] = address
-            except Exception as e:
-                pass  # Silently ignore address errors for now
-        
-        profile = Profile.objects.create(**profile_data)
-        
-        # Serialize and return the created profile
-        # We need to manually create the serialized data since the serializer has role as read_only
-        serialized_data = {
-            'id': profile.id,
-            'username': profile.user.username,
-            'role': profile.role,
-            'first_name': profile.first_name,
-            'last_name': profile.last_name,
-            'middle_name': profile.middle_name,
-            'email': profile.user.email,
-            'phone': profile.phone,
-            'address': profile.address.id if profile.address else None,
-            'address_detail': {
-                'id': profile.address.id,
-                'full_address': profile.address.full_address,
-                'barangay': profile.address.barangay.id,
-                'municipality': profile.address.barangay.municipality.id,
-                'barangay_name': profile.address.barangay.name,
-                'municipality_name': profile.address.barangay.municipality.name
-            } if profile.address else None
-        }
-        return Response(serialized_data, status=status.HTTP_201_CREATED)
 
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.select_related('product', 'customer__user').all()
@@ -573,29 +427,6 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated(), IsRole('admin')]
         return [IsAuthenticated()]
     
-    @action(detail=False, methods=['get'], url_path='my-deliveries')
-    def my_deliveries(self, request):
-        """Get deliveries for the current customer"""
-        if not hasattr(request.user, 'profile'):
-            return Response({'error': 'User profile not found'}, status=404)
-        
-        # Only customers can access their own deliveries
-        if request.user.profile.role != 'customer':
-            return Response({'error': 'Only customers can access their deliveries'}, status=403)
-        
-        try:
-            # Get deliveries for orders placed by this customer
-            deliveries = Delivery.objects.select_related(
-                'order', 'order__product', 'driver', 'vehicle', 'route'
-            ).filter(
-                order__customer=request.user.profile
-            ).order_by('-created_at')
-            
-            serializer = self.get_serializer(deliveries, many=True)
-            return Response(serializer.data)
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
-    
     @action(detail=True, methods=['patch'])
     def assign_vehicle_route(self, request, pk=None):
         """Assign a vehicle and route to a delivery"""
@@ -653,13 +484,7 @@ class ReportViewSet(views.APIView):
     
     def get(self, request):
         # Only include delivered orders in sales data
-        # Note: Orders don't have a status field, so we need to join with Delivery
-        delivered_orders = Delivery.objects.filter(status='delivered').select_related('order')
-        order_ids = [delivery.order.id for delivery in delivered_orders]
-        
-        sales = Order.objects.filter(
-            id__in=order_ids
-        ).values('created_at__date').annotate(
+        sales = Order.objects.filter(status='delivered').values('created_at__date').annotate(
             total=Sum('product__price'), orders=Count('id')
         ).order_by('-created_at__date')[:30]
         # Normalize sales dates to ISO strings and totals to floats for frontend charting
@@ -677,13 +502,7 @@ class ReportViewSet(views.APIView):
         to_be_returned = []
         # Since we don't have container tracking in the current model, we'll skip this for now
         
-        # Note: Orders don't have a status field, so we need to join with Delivery
-        delivered_orders = Delivery.objects.filter(status='delivered').select_related('order')
-        order_ids = [delivery.order.id for delivery in delivered_orders]
-        
-        top_customers = Order.objects.filter(
-            id__in=order_ids
-        ).values(
+        top_customers = Order.objects.filter(status='delivered').values(
             'customer__user__username',
             'customer__first_name',
             'customer__last_name'
@@ -693,24 +512,17 @@ class ReportViewSet(views.APIView):
         start_of_month = today.replace(day=1)
 
         def aggregate_total(start_date):
-            # Note: Orders don't have a status field, so we need to join with Delivery
-            delivered_orders = Delivery.objects.filter(status='delivered', order__created_at__date__gte=start_date).select_related('order')
-            order_ids = [delivery.order.id for delivery in delivered_orders]
-            return Order.objects.filter(id__in=order_ids).aggregate(total=Sum('product__price'))['total'] or 0
+            return Order.objects.filter(status='delivered', created_at__date__gte=start_date).aggregate(total=Sum('product__price'))['total'] or 0
 
-        # Note: Orders don't have a status field, so we need to join with Delivery
-        delivered_today_orders = Delivery.objects.filter(status='delivered', order__created_at__date=today).select_related('order')
-        today_order_ids = [delivery.order.id for delivery in delivered_today_orders]
-        
         revenue_summary = {
-            'today': float(Order.objects.filter(id__in=today_order_ids).aggregate(total=Sum('product__price'))['total'] or 0),
+            'today': float(Order.objects.filter(status='delivered', created_at__date=today).aggregate(total=Sum('product__price'))['total'] or 0),
             'week': float(aggregate_total(start_of_week)),
             'month': float(aggregate_total(start_of_month)),
         }
         
         # Get recent deliveries for display on dashboard
         recent_deliveries = Delivery.objects.filter(
-            status='delivered'
+            status='completed'
         ).select_related(
             'order', 'driver', 'vehicle'
         ).order_by('-order__created_at')[:10]
@@ -799,69 +611,6 @@ class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
     def get_permissions(self):
         return [IsAuthenticated(), IsRole('admin')]
 
-
-class UsersViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated]
-    
-    def create(self, request):
-        # Determine the appropriate endpoint based on the role in the request data
-        role = request.data.get('role', '').lower()
-        
-        if role == 'driver':
-            # Create a driver using DriverViewSet's create method directly
-            try:
-                # Remove the role field from the data for the driver creation
-                driver_data = request.data.copy()
-                if 'role' in driver_data:
-                    del driver_data['role']
-                
-                # Create a mock request-like object
-                class MockRequest:
-                    def __init__(self, user, data):
-                        self.user = user
-                        self.data = data
-                        self.META = {}
-                
-                mock_request = MockRequest(request.user, driver_data)
-                
-                # Call the DriverViewSet create method directly
-                response = DriverViewSet().create(mock_request)
-                return response
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
-                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        elif role == 'staff':
-            # Create a staff member using StaffViewSet's create method directly
-            try:
-                # Remove the role field from the data for the staff creation
-                staff_data = request.data.copy()
-                if 'role' in staff_data:
-                    del staff_data['role']
-                
-                # Create a mock request-like object
-                class MockRequest:
-                    def __init__(self, user, data):
-                        self.user = user
-                        self.data = data
-                        self.META = {}
-                
-                mock_request = MockRequest(request.user, staff_data)
-                
-                # Call the StaffViewSet create method directly
-                response = StaffViewSet().create(mock_request)
-                return response
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
-                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        else:
-            # If no role specified or invalid role, return an error
-            return Response(
-                {'error': 'Role must be specified as either "driver" or "staff"'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
 class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Notification.objects.all().order_by('-sent_at')
     serializer_class = NotificationSerializer
@@ -917,45 +666,6 @@ class DeploymentViewSet(viewsets.ModelViewSet):
             traceback.print_exc()
             return Response({'error': str(e)}, status=500)
     
-
-    @action(detail=False, methods=['get'], url_path='by-customer-barangay')
-    def by_customer_barangay(self, request):
-        """Get deployments for the current customer's barangay"""
-        if not hasattr(request.user, 'profile'):
-            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Only customers can access this endpoint
-        if request.user.profile.role != 'customer':
-            return Response({'error': 'Only customers can access this endpoint'}, status=status.HTTP_403_FORBIDDEN)
-        
-        try:
-            # Get the customer's profile
-            customer_profile = request.user.profile
-            
-            # Check if customer has an address
-            if not customer_profile.address:
-                return Response({
-                    'deployments': [],
-                    'message': 'No address found for customer'
-                })
-            
-            # Get the customer's barangay
-            customer_barangay = customer_profile.address.barangay
-            
-            # Find routes that include this barangay
-            routes_with_barangay = Route.objects.filter(barangays=customer_barangay)
-            
-            # Get deployments for these routes
-            deployments = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').filter(route__in=routes_with_barangay).order_by('-created_at')
-            
-            serializer = self.get_serializer(deployments, many=True)
-            return Response({
-                'deployments': serializer.data,
-                'message': f'Found {deployments.count()} deployments for your barangay'
-            })
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
     def perform_create(self, serializer):
         # Auto-set the created_at to now
         try:
@@ -1082,42 +792,3 @@ class DeploymentViewSet(viewsets.ModelViewSet):
         except Exception as e:
             print(f"Error in DeploymentViewSet.retrieve: {e}")
             return Response({'error': str(e)}, status=500)
-
-    @action(detail=False, methods=['get'], url_path='by-customer-barangay')
-    def by_customer_barangay(self, request):
-        """Get deployments for the current customer's barangay"""
-        if not hasattr(request.user, 'profile'):
-            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Only customers can access this endpoint
-        if request.user.profile.role != 'customer':
-            return Response({'error': 'Only customers can access this endpoint'}, status=status.HTTP_403_FORBIDDEN)
-        
-        try:
-            # Get the customer's profile
-            customer_profile = request.user.profile
-            
-            # Check if customer has an address
-            if not customer_profile.address:
-                return Response({
-                    'deployments': [],
-                    'message': 'No address found for customer'
-                })
-            
-            # Get the customer's barangay
-            customer_barangay = customer_profile.address.barangay
-            
-            # Find routes that include this barangay
-            routes_with_barangay = Route.objects.filter(barangays=customer_barangay)
-            
-            # Get deployments for these routes
-            deployments = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').filter(route__in=routes_with_barangay).order_by('-created_at')
-            
-            serializer = self.get_serializer(deployments, many=True)
-            return Response({
-                'deployments': serializer.data,
-                'message': f'Found {deployments.count()} deployments for your barangay'
-            })
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
