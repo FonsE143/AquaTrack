@@ -74,7 +74,7 @@ export default function StaffDashboard() {
 
         {/* Stats Cards */}
         <div className="row g-4 mb-4">
-          <div className="col-md-6">
+          <div className="col-12 col-md-6">
             <div className="card border-0 shadow-sm h-100">
               <div className="card-header bg-white border-0 py-3">
                 <div className="d-flex align-items-center gap-2">
@@ -106,7 +106,7 @@ export default function StaffDashboard() {
             </div>
           </div>
           
-          <div className="col-md-6">
+          <div className="col-12 col-md-6">
             <div className="card border-0 shadow-sm h-100">
               <div className="card-header bg-white border-0 py-3">
                 <div className="d-flex align-items-center gap-2">

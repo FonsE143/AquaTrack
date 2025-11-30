@@ -213,9 +213,9 @@ export default function OrderHistoryPage(){
                 
                 {/* Mobile Card View */}
                 <div className="d-md-none">
-                  <div className="row">
+                  <div className="row g-3">
                     {(orders || []).map(o => (
-                      <div key={o.id} className="col-12 col-sm-6 col-lg-4 mb-3">
+                      <div key={o.id} className="col-12 mb-3">
                         <div className="card shadow-sm h-100">
                           <div className="card-body">
                             <div className="d-flex justify-content-between align-items-start mb-2">

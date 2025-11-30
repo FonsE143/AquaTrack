@@ -60,39 +60,85 @@ export default function StaffActivityLogs() {
                 </div>
               </div>
             ) : Array.isArray(activityLogs) && activityLogs.length > 0 ? (
-              <div className="list-group list-group-flush">
-                {activityLogs.map(log => (
-                  <div key={log.id} className="list-group-item border-0 px-3 py-3">
-                    <div className="d-flex align-items-start gap-3">
-                      <div className="mt-1 text-success">
-                        {getIcon(log.action)}
-                      </div>
-                      <div className="flex-grow-1">
-                        <div className="d-flex flex-wrap justify-content-between gap-2">
-                          <div className="fw-medium">
-                            {log.action}
+              <>
+                {/* Desktop View */}
+                <div className="d-none d-md-block">
+                  <div className="list-group list-group-flush">
+                    {activityLogs.map(log => (
+                      <div key={log.id} className="list-group-item border-0 px-3 py-3">
+                        <div className="d-flex align-items-start gap-3">
+                          <div className="mt-1 text-success">
+                            {getIcon(log.action)}
                           </div>
-                          <div className="small text-muted">
-                            {new Date(log.timestamp).toLocaleString()}
+                          <div className="flex-grow-1">
+                            <div className="d-flex flex-wrap justify-content-between gap-2">
+                              <div className="fw-medium">
+                                {log.action}
+                              </div>
+                              <div className="small text-muted">
+                                {new Date(log.timestamp).toLocaleString()}
+                              </div>
+                            </div>
+                            <div className="small text-muted mt-1">
+                              {log.entity}
+                            </div>
+                            {log.meta && Object.keys(log.meta).length > 0 && (
+                              <div className="small mt-2">
+                                {Object.entries(log.meta).map(([key, value]) => (
+                                  <span key={key} className="badge bg-light text-dark me-1">
+                                    {key}: {value}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className="small text-muted mt-1">
-                          {log.entity}
-                        </div>
-                        {log.meta && Object.keys(log.meta).length > 0 && (
-                          <div className="small mt-2">
-                            {Object.entries(log.meta).map(([key, value]) => (
-                              <span key={key} className="badge bg-light text-dark me-1">
-                                {key}: {value}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+                
+                {/* Mobile View */}
+                <div className="d-md-none">
+                  <div className="row g-3 p-3">
+                    {activityLogs.map(log => (
+                      <div key={log.id} className="col-12">
+                        <div className="card shadow-sm border">
+                          <div className="card-body">
+                            <div className="d-flex align-items-start gap-3">
+                              <div className="mt-1 text-success">
+                                {getIcon(log.action)}
+                              </div>
+                              <div className="flex-grow-1">
+                                <div className="d-flex flex-wrap justify-content-between gap-2">
+                                  <div className="fw-medium">
+                                    {log.action}
+                                  </div>
+                                  <div className="small text-muted">
+                                    {new Date(log.timestamp).toLocaleString()}
+                                  </div>
+                                </div>
+                                <div className="small text-muted mt-1">
+                                  {log.entity}
+                                </div>
+                                {log.meta && Object.keys(log.meta).length > 0 && (
+                                  <div className="small mt-2">
+                                    {Object.entries(log.meta).map(([key, value]) => (
+                                      <span key={key} className="badge bg-light text-dark me-1 mb-1">
+                                        {key}: {value}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             ) : (
               <div className="text-center py-5">
                 <Clock size={48} className="text-muted mb-3" />

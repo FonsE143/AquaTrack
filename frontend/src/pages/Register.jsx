@@ -62,10 +62,10 @@ export default function Register() {
   };
 
   return (
-    <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light px-5">
+    <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light px-3 px-md-5">
       <form
         onSubmit={submit}
-        className="bg-white rounded-4 shadow p-5 w-100"
+        className="bg-white rounded-4 shadow p-4 p-md-5 w-100"
         style={{ maxWidth: '500px' }}
       >
         {/* Logo + Brand */}

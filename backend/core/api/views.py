@@ -599,15 +599,11 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             
             # Handle driver requests
             elif request.user.profile.role == 'driver':
-                # Get deliveries assigned to this driver
+                # Get deliveries assigned to this driver (including completed ones)
                 deliveries = Delivery.objects.select_related(
                     'order', 'order__product', 'order__customer', 'order__customer__user', 'vehicle', 'route'
                 ).filter(
                     driver=request.user.profile
-                ).exclude(
-                    status='delivered'
-                ).exclude(
-                    status='cancelled'
                 ).order_by('-created_at')
                 
                 serializer = self.get_serializer(deliveries, many=True)
@@ -836,20 +832,53 @@ class ReportViewSet(views.APIView):
         delivered_orders = Delivery.objects.filter(status='delivered').select_related('order')
         order_ids = [delivery.order.id for delivery in delivered_orders]
         
-        sales = Order.objects.filter(
+        # Get sales data from regular orders
+        order_sales = Order.objects.filter(
             id__in=order_ids
         ).values('created_at__date').annotate(
             total=Sum(F('product__price') * F('quantity')), orders=Count('id')
         ).order_by('-created_at__date')[:30]
-        # Normalize sales dates to ISO strings and totals to floats for frontend charting
-        sales_list = []
-        for s in sales:
+        
+        # Get sales data from walk-in orders
+        walkin_sales = WalkInOrder.objects.values('created_at__date').annotate(
+            total=Sum(F('product__price') * F('quantity')), orders=Count('id')
+        ).order_by('-created_at__date')[:30]
+        
+        # Combine sales data from both regular orders and walk-in orders
+        combined_sales = {}
+        
+        # Add regular order sales
+        for s in order_sales:
             date_val = s.get('created_at__date')
+            date_key = date_val.isoformat() if date_val else None
+            if date_key:
+                if date_key not in combined_sales:
+                    combined_sales[date_key] = {'total': 0, 'orders': 0}
+                combined_sales[date_key]['total'] += float(s.get('total') or 0)
+                combined_sales[date_key]['orders'] += int(s.get('orders') or 0)
+        
+        # Add walk-in order sales
+        for s in walkin_sales:
+            date_val = s.get('created_at__date')
+            date_key = date_val.isoformat() if date_val else None
+            if date_key:
+                if date_key not in combined_sales:
+                    combined_sales[date_key] = {'total': 0, 'orders': 0}
+                combined_sales[date_key]['total'] += float(s.get('total') or 0)
+                combined_sales[date_key]['orders'] += int(s.get('orders') or 0)
+        
+        # Convert combined sales to list format for frontend
+        sales_list = []
+        for date_key, data in combined_sales.items():
             sales_list.append({
-                'created_at__date': date_val.isoformat() if date_val else None,
-                'total': float(s.get('total') or 0),
-                'orders': int(s.get('orders') or 0)
+                'created_at__date': date_key,
+                'total': data['total'],
+                'orders': data['orders']
             })
+        
+        # Sort by date descending and limit to 30
+        sales_list.sort(key=lambda x: x['created_at__date'], reverse=True)
+        sales_list = sales_list[:30]
 
         # Get products with outstanding container returns
         # This query finds products where delivered containers > returned containers
@@ -875,11 +904,23 @@ class ReportViewSet(views.APIView):
             # Note: Orders don't have a status field, so we need to join with Delivery
             delivered_orders = Delivery.objects.filter(status='delivered', order__created_at__date__gte=start_date).select_related('order')
             order_ids = [delivery.order.id for delivery in delivered_orders]
-            return Order.objects.filter(id__in=order_ids).aggregate(total=Sum(F('product__price') * F('quantity')))['total'] or 0
+            
+            # Calculate revenue from regular orders
+            order_revenue = Order.objects.filter(id__in=order_ids).aggregate(total=Sum(F('product__price') * F('quantity')))['total'] or 0
+            
+            # Calculate revenue from walk-in orders
+            walkin_revenue = WalkInOrder.objects.filter(created_at__date__gte=start_date).aggregate(total=Sum(F('product__price') * F('quantity')))['total'] or 0
+            
+            return float(order_revenue) + float(walkin_revenue)
 
         # Note: Orders don't have a status field, so we need to join with Delivery
         delivered_today_orders = Delivery.objects.filter(status='delivered', order__created_at__date=today).select_related('order')
         today_order_ids = [delivery.order.id for delivery in delivered_today_orders]
+        
+        # Calculate today's revenue including walk-in orders
+        today_order_revenue = Order.objects.filter(id__in=today_order_ids).aggregate(total=Sum(F('product__price') * F('quantity')))['total'] or 0
+        today_walkin_revenue = WalkInOrder.objects.filter(created_at__date=today).aggregate(total=Sum(F('product__price') * F('quantity')))['total'] or 0
+        today_total_revenue = float(today_order_revenue) + float(today_walkin_revenue)
         
         # Get total orders for the current week
         delivered_week_orders = Delivery.objects.filter(status='delivered', order__created_at__date__gte=start_of_week).select_related('order')
@@ -887,7 +928,7 @@ class ReportViewSet(views.APIView):
         total_orders = Order.objects.filter(id__in=week_order_ids).count()
         
         revenue_summary = {
-            'today': float(Order.objects.filter(id__in=today_order_ids).aggregate(total=Sum(F('product__price') * F('quantity')))['total'] or 0),
+            'today': today_total_revenue,
             'week': float(aggregate_total(start_of_week)),
             'month': float(aggregate_total(start_of_month)),
         }

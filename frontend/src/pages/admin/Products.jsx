@@ -359,8 +359,8 @@ export default function AdminProducts() {
                   <thead>
                     <tr>
                       <th>Product Name</th>
-                      <th>Price</th>
-                      <th>Liters</th>
+                      <th className="d-none d-md-table-cell">Price</th>
+                      <th className="d-none d-lg-table-cell">Liters</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -371,9 +371,17 @@ export default function AdminProducts() {
                         const product = currentProducts[index];
                         return (
                           <tr key={product.id} style={{ height: '80px' }}>
-                            <td>{product.name}</td>
-                            <td>₱{parseFloat(product.price).toFixed(2)}</td>
-                            <td>{parseFloat(product.liters).toFixed(2)} L</td>
+                            <td>
+                              <div className="d-flex flex-column">
+                                <span className="fw-bold">{product.name}</span>
+                                <div className="d-md-none">
+                                  <span className="small text-muted">₱{parseFloat(product.price).toFixed(2)}</span>
+                                  <span className="small text-muted ms-2">{parseFloat(product.liters).toFixed(2)} L</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="d-none d-md-table-cell">₱{parseFloat(product.price).toFixed(2)}</td>
+                            <td className="d-none d-lg-table-cell">{parseFloat(product.liters).toFixed(2)} L</td>
                             <td>
                               <div className="d-flex gap-2">
                                 <button 

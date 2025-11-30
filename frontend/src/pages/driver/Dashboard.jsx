@@ -130,7 +130,7 @@ export default function DriverDashboard() {
         {myDeployment && (
           <div className="row g-4 mb-4">
             {/* Stock Count Table */}
-            <div className="col-md-6">
+            <div className="col-12 col-md-6">
               <div className="card border-0 shadow-sm h-100">
                 <div className="card-header bg-white border-0 py-3">
                   <div className="d-flex align-items-center gap-2">
@@ -139,14 +139,15 @@ export default function DriverDashboard() {
                   </div>
                 </div>
                 <div className="card-body p-0">
-                  <div className="table-responsive">
+                  {/* Desktop Table View */}
+                  <div className="table-responsive d-none d-md-block">
                     <table className="table table-hover mb-0">
                       <thead className="table-light">
                         <tr>
                           <th>Product</th>
                           <th>Current Stock</th>
-                          <th>Vehicle</th>
-                          <th>Plate Number</th>
+                          <th className="d-none d-lg-table-cell">Vehicle</th>
+                          <th className="d-none d-lg-table-cell">Plate Number</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -155,18 +156,34 @@ export default function DriverDashboard() {
                           <td>
                             <span className="fw-bold">{myDeployment.stock || 0} units</span>
                           </td>
-                          <td>{myDeployment.vehicle_name || 'N/A'}</td>
-                          <td>{myDeployment.vehicle_plate_number || 'N/A'}</td>
+                          <td className="d-none d-lg-table-cell">{myDeployment.vehicle_name || 'N/A'}</td>
+                          <td className="d-none d-lg-table-cell">{myDeployment.vehicle_plate_number || 'N/A'}</td>
                         </tr>
                       </tbody>
                     </table>
+                  </div>
+                  
+                  {/* Mobile Card View */}
+                  <div className="d-md-none p-3">
+                    <div className="mb-3">
+                      <small className="text-muted">Product</small>
+                      <div className="fw-medium">{myDeployment.product_name || 'N/A'}</div>
+                    </div>
+                    <div className="mb-3">
+                      <small className="text-muted">Current Stock</small>
+                      <div className="fw-bold">{myDeployment.stock || 0} units</div>
+                    </div>
+                    <div className="mb-3">
+                      <small className="text-muted">Vehicle</small>
+                      <div className="fw-medium">{myDeployment.vehicle_name || 'N/A'} ({myDeployment.vehicle_plate_number || 'N/A'})</div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Route Table - Municipality and Barangays */}
-            <div className="col-md-6">
+            <div className="col-12 col-md-6">
               <div className="card border-0 shadow-sm h-100">
                 <div className="card-header bg-white border-0 py-3">
                   <div className="d-flex align-items-center gap-2">
@@ -175,19 +192,20 @@ export default function DriverDashboard() {
                   </div>
                 </div>
                 <div className="card-body p-0">
-                  <div className="table-responsive">
+                  {/* Desktop Table View */}
+                  <div className="table-responsive d-none d-md-block">
                     <table className="table table-hover mb-0">
                       <thead className="table-light">
                         <tr>
                           <th>Route Number</th>
-                          <th>Municipality</th>
+                          <th className="d-none d-lg-table-cell">Municipality</th>
                           <th>Barangays</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
                           <td>Route {myDeployment.route_number || 'N/A'}</td>
-                          <td>{myDeployment.municipality_names || 'N/A'}</td>
+                          <td className="d-none d-lg-table-cell">{myDeployment.municipality_names || 'N/A'}</td>
                           <td>
                             {myDeployment.barangay_names ? (
                               <div className="d-flex flex-wrap gap-1">
@@ -204,6 +222,34 @@ export default function DriverDashboard() {
                         </tr>
                       </tbody>
                     </table>
+                  </div>
+                  
+                  {/* Mobile Card View */}
+                  <div className="d-md-none p-3">
+                    <div className="mb-3">
+                      <small className="text-muted">Route Number</small>
+                      <div className="fw-medium">Route {myDeployment.route_number || 'N/A'}</div>
+                    </div>
+                    <div className="mb-3">
+                      <small className="text-muted">Municipality</small>
+                      <div className="fw-medium">{myDeployment.municipality_names || 'N/A'}</div>
+                    </div>
+                    <div className="mb-0">
+                      <small className="text-muted">Barangays</small>
+                      <div>
+                        {myDeployment.barangay_names ? (
+                          <div className="d-flex flex-wrap gap-1">
+                            {myDeployment.barangay_names.split(', ').map((barangay, idx) => (
+                              <span key={idx} className="badge bg-secondary-subtle text-secondary-emphasis">
+                                {barangay}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          'N/A'
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -229,74 +275,144 @@ export default function DriverDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="table-responsive">
-                    <table className="table table-hover mb-0">
-                      <thead className="table-light">
-                        <tr>
-                          <th>Order ID</th>
-                          <th>Customer</th>
-                          <th>Address</th>
-                          <th>Quantity</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Array.isArray(deliveries) && deliveries.length > 0 ? (
-                          deliveries.map(delivery => (
-                            <tr key={delivery.id}>
-                              <td>#{delivery.order_id}</td>
-                              <td>
-                                {delivery.customer_first_name} {delivery.customer_last_name}
+                  <>
+                    {/* Desktop Table View */}
+                    <div className="table-responsive d-none d-md-block">
+                      <table className="table table-hover mb-0">
+                        <thead className="table-light">
+                          <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th className="d-none d-lg-table-cell">Address</th>
+                            <th>Quantity</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Array.isArray(deliveries) && deliveries.length > 0 ? (
+                            deliveries.map(delivery => (
+                              <tr key={delivery.id}>
+                                <td>#{delivery.order_id}</td>
+                                <td>
+                                  {delivery.customer_first_name} {delivery.customer_last_name}
+                                </td>
+                                <td className="d-none d-lg-table-cell">{delivery.customer_address}</td>
+                                <td>{delivery.order_quantity}</td>
+                                <td>
+                                  {delivery.status === 'assigned' && (
+                                    <button 
+                                      className="btn btn-sm btn-success d-flex align-items-center gap-1"
+                                      onClick={() => handleStartDelivery(delivery.id)}
+                                      disabled={updateDeliveryStatus.isLoading}
+                                    >
+                                      <Play size={14} />
+                                      Start
+                                    </button>
+                                  )}
+                                  {delivery.status === 'in_route' && (
+                                    <div className="d-flex gap-2">
+                                      <button 
+                                        className="btn btn-sm btn-success d-flex align-items-center gap-1"
+                                        onClick={() => handleCompleteDelivery(delivery)}
+                                        disabled={updateDeliveryStatus.isLoading}
+                                      >
+                                        <CheckCircle size={14} />
+                                        Complete
+                                      </button>
+                                      <button 
+                                        className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
+                                        onClick={() => handleCancelDelivery(delivery.id)}
+                                        disabled={updateDeliveryStatus.isLoading}
+                                      >
+                                        <X size={14} />
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  )}
+                                  {(delivery.status === 'delivered' || delivery.status === 'cancelled') && (
+                                    <span className="text-muted">No actions</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="5" className="text-center py-3">
+                                No deliveries found
                               </td>
-                              <td>{delivery.customer_address}</td>
-                              <td>{delivery.order_quantity}</td>
-                              <td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    {/* Mobile Card View */}
+                    <div className="d-md-none">
+                      {Array.isArray(deliveries) && deliveries.length > 0 ? (
+                        <div className="list-group list-group-flush">
+                          {deliveries.map(delivery => (
+                            <div key={delivery.id} className="list-group-item border-0 px-3 py-3">
+                              <div className="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                  <h6 className="mb-1">Order #{delivery.order_id}</h6>
+                                  <small className="text-muted">
+                                    {delivery.customer_first_name} {delivery.customer_last_name}
+                                  </small>
+                                </div>
+                                <span className="badge bg-primary">{delivery.order_quantity} qty</span>
+                              </div>
+                              
+                              <div className="mb-2">
+                                <small className="text-muted">Address:</small>
+                                <div>{delivery.customer_address}</div>
+                              </div>
+                              
+                              <div>
                                 {delivery.status === 'assigned' && (
                                   <button 
-                                    className="btn btn-sm btn-success d-flex align-items-center gap-1"
+                                    className="btn btn-sm btn-success w-100"
                                     onClick={() => handleStartDelivery(delivery.id)}
                                     disabled={updateDeliveryStatus.isLoading}
                                   >
-                                    <Play size={14} />
-                                    Start
+                                    <Play size={14} className="me-1" />
+                                    Start Delivery
                                   </button>
                                 )}
                                 {delivery.status === 'in_route' && (
-                                  <div className="d-flex gap-2">
+                                  <div className="d-grid gap-2">
                                     <button 
-                                      className="btn btn-sm btn-success d-flex align-items-center gap-1"
+                                      className="btn btn-sm btn-success"
                                       onClick={() => handleCompleteDelivery(delivery)}
                                       disabled={updateDeliveryStatus.isLoading}
                                     >
-                                      <CheckCircle size={14} />
-                                      Complete
+                                      <CheckCircle size={14} className="me-1" />
+                                      Complete Delivery
                                     </button>
                                     <button 
-                                      className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
+                                      className="btn btn-sm btn-outline-danger"
                                       onClick={() => handleCancelDelivery(delivery.id)}
                                       disabled={updateDeliveryStatus.isLoading}
                                     >
-                                      <X size={14} />
-                                      Cancel
+                                      <X size={14} className="me-1" />
+                                      Cancel Delivery
                                     </button>
                                   </div>
                                 )}
                                 {(delivery.status === 'delivered' || delivery.status === 'cancelled') && (
-                                  <span className="text-muted">No actions</span>
+                                  <span className="text-muted">No actions available</span>
                                 )}
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="5" className="text-center py-3">
-                              No deliveries found
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-5">
+                          <Package size={48} className="text-muted mb-3" />
+                          <p className="text-muted mb-0">No deliveries found</p>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             </div>

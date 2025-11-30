@@ -60,17 +60,18 @@ export default function CustomerOrders() {
                   </div>
                 </div>
                 <div className="card-body p-0">
-                  <div className="table-responsive">
+                  {/* Desktop Table View */}
+                  <div className="table-responsive d-none d-md-block">
                     <table className="table table-hover mb-0">
                       <thead className="table-light">
                         <tr>
                           <th>Order ID</th>
                           <th>Product</th>
                           <th>Ordered Quantity</th>
-                          <th>Delivered Quantity</th>
+                          <th className="d-none d-lg-table-cell">Delivered Quantity</th>
                           <th>Status</th>
-                          <th>Created At</th>
-                          <th>Last Updated</th>
+                          <th className="d-none d-lg-table-cell">Created At</th>
+                          <th className="d-none d-xl-table-cell">Last Updated</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -92,7 +93,7 @@ export default function CustomerOrders() {
                                   </div>
                                 )}
                               </td>
-                              <td>
+                              <td className="d-none d-lg-table-cell">
                                 {delivery.delivered_quantity || delivery.order_quantity || 0}
                               </td>
                               <td>
@@ -107,8 +108,8 @@ export default function CustomerOrders() {
                                   </div>
                                 </span>
                               </td>
-                              <td>{formatDate(delivery.created_at)}</td>
-                              <td>{formatDate(delivery.updated_at)}</td>
+                              <td className="d-none d-lg-table-cell">{formatDate(delivery.created_at)}</td>
+                              <td className="d-none d-xl-table-cell">{formatDate(delivery.updated_at)}</td>
                             </tr>
                           ))
                         ) : (
@@ -122,6 +123,69 @@ export default function CustomerOrders() {
                         )}
                       </tbody>
                     </table>
+                  </div>
+                  
+                  {/* Mobile Card View */}
+                  <div className="d-md-none">
+                    {Array.isArray(completedOrders) && completedOrders.length > 0 ? (
+                      <div className="list-group list-group-flush">
+                        {completedOrders.map((delivery, index) => (
+                          <div key={index} className="list-group-item border-0 px-3 py-3">
+                            <div className="d-flex justify-content-between align-items-start mb-2">
+                              <div>
+                                <h6 className="mb-1">Order #{delivery.order_id || 'N/A'}</h6>
+                                <small className="text-muted">{delivery.order_product_name || 'N/A'}</small>
+                              </div>
+                              <span className={`badge ${
+                                delivery.status === 'delivered' ? 'bg-success' : 
+                                delivery.status === 'cancelled' ? 'bg-danger' : 'bg-secondary'
+                              }`}>
+                                <div className="d-flex align-items-center gap-1">
+                                  {delivery.status === 'delivered' && <CheckCircle size={12} />}
+                                  {delivery.status === 'cancelled' && <XCircle size={12} />}
+                                  {delivery.status ? delivery.status.replace('_', ' ').charAt(0).toUpperCase() + delivery.status.replace('_', ' ').slice(1) : 'N/A'}
+                                </div>
+                              </span>
+                            </div>
+                            
+                            <div className="mb-2">
+                              <small className="text-muted">Ordered Quantity:</small>
+                              <div>
+                                {delivery.order_quantity || 0}
+                                {delivery.order_free_items > 0 && (
+                                  <span className="text-success ms-1">
+                                    <Gift size={12} /> +{delivery.order_free_items}
+                                  </span>
+                                )}
+                                {delivery.order_free_items > 0 && (
+                                  <div className="small text-muted">
+                                    Total: {delivery.order_total_quantity || delivery.order_quantity}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="mb-2">
+                              <small className="text-muted">Delivered Quantity:</small>
+                              <div>
+                                {delivery.delivered_quantity || delivery.order_quantity || 0}
+                              </div>
+                            </div>
+                            
+                            <div className="mb-0">
+                              <small className="text-muted">Created:</small>
+                              <div>{formatDate(delivery.created_at)}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-5">
+                        <Package size={48} className="text-muted mb-3" />
+                        <p className="text-muted mb-0 h4">No completed or cancelled orders found</p>
+                        <p className="text-muted">Your completed orders will appear here once delivered or cancelled</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

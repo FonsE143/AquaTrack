@@ -65,6 +65,9 @@ export default function DriverDeliveries() {
     ? deliveries.filter(d => d.status === 'delivered')
     : []
 
+  // Show all deliveries (including pending, in-route, and completed)
+  const allDeliveries = Array.isArray(deliveries) ? deliveries : []
+
   // Handle start delivery
   const handleStartDelivery = (deliveryId) => {
     createStyledConfirm(
@@ -148,19 +151,19 @@ export default function DriverDeliveries() {
                 </div>
                 <div className="card-body">
                   <div className="row g-3">
-                    <div className="col-md-3">
+                    <div className="col-6 col-md-3 mb-3 mb-md-0">
                       <div className="small text-muted">Product</div>
                       <div className="fw-medium">{myDeployment.product_name || 'N/A'}</div>
                     </div>
-                    <div className="col-md-3">
+                    <div className="col-6 col-md-3 mb-3 mb-md-0">
                       <div className="small text-muted">Stock</div>
                       <div className="fw-medium">{myDeployment.stock || 0} units</div>
                     </div>
-                    <div className="col-md-3">
+                    <div className="col-6 col-md-3">
                       <div className="small text-muted">Route</div>
                       <div className="fw-medium">Route {myDeployment.route_number || 'N/A'}</div>
                     </div>
-                    <div className="col-md-3">
+                    <div className="col-6 col-md-3">
                       <div className="small text-muted">Vehicle</div>
                       <div className="fw-medium">{myDeployment.vehicle_name || 'N/A'} ({myDeployment.vehicle_plate_number || 'N/A'})</div>
                     </div>
@@ -189,55 +192,219 @@ export default function DriverDeliveries() {
                   </div>
                 </div>
                 <div className="card-body p-0">
-                  <div className="table-responsive">
-                    <table className="table table-hover mb-0">
-                      <thead className="table-light">
-                        <tr>
-                          <th>Order ID</th>
-                          <th>Customer</th>
-                          <th>Address</th>
-                          <th>Quantity</th>
-                          <th>Status</th>
-                          <th>Delivered At</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Array.isArray(completedDeliveries) && completedDeliveries.length > 0 ? (
-                          completedDeliveries.map(delivery => (
-                            <tr key={delivery.id}>
-                              <td>#{delivery.order_id}</td>
-                              <td>
-                                {delivery.customer_first_name} {delivery.customer_last_name}
-                              </td>
-                              <td>{delivery.customer_address}</td>
-                              <td>{delivery.order_quantity}</td>
-                              <td>
-                                <span className={`badge ${
-                                  delivery.status === 'delivered' ? 'bg-success' : 
-                                  delivery.status === 'in_route' ? 'bg-primary' : 
-                                  delivery.status === 'assigned' ? 'bg-warning' : 
-                                  delivery.status === 'cancelled' ? 'bg-danger' : 'bg-secondary'
-                                }`}>
-                                  {delivery.status.charAt(0).toUpperCase() + delivery.status.slice(1)}
-                                </span>
-                              </td>
-                              <td>
-                                <div className="d-flex align-items-center gap-1">
-                                  <Calendar size={14} className="text-muted" />
-                                  <span>{formatDate(delivery.delivered_at)}</span>
+                  {/* Desktop View - Grouped by Status */}
+                  <div className="d-none d-md-block">
+
+                    
+                    {/* In-Route Deliveries */}
+                    {Array.isArray(inRouteDeliveries) && inRouteDeliveries.length > 0 && (
+                      <div className="mb-4">
+                        <div className="border-bottom p-3 bg-light">
+                          <h6 className="mb-0">In-Route Deliveries</h6>
+                        </div>
+                        <div className="table-responsive">
+                          <table className="table table-hover mb-0">
+                            <thead className="table-light">
+                              <tr>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th className="d-none d-lg-table-cell">Address</th>
+                                <th>Quantity</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {inRouteDeliveries.map(delivery => (
+                                <tr key={delivery.id}>
+                                  <td>#{delivery.order_id}</td>
+                                  <td>
+                                    {delivery.customer_first_name} {delivery.customer_last_name}
+                                  </td>
+                                  <td className="d-none d-lg-table-cell">{delivery.customer_address}</td>
+                                  <td>{delivery.order_quantity}</td>
+                                  <td>
+                                    <span className="badge bg-primary">In Route</span>
+                                  </td>
+                                  <td>
+                                    <button 
+                                      className="btn btn-sm btn-success"
+                                      onClick={() => handleCompleteDelivery(delivery)}
+                                    >
+                                      <CheckCircle size={14} className="me-1" /> Complete
+                                    </button>
+                                    <button 
+                                      className="btn btn-sm btn-danger ms-2"
+                                      onClick={() => handleCancelDelivery(delivery.id)}
+                                    >
+                                      <X size={14} /> Cancel
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Completed Deliveries */}
+                    {Array.isArray(completedDeliveries) && completedDeliveries.length > 0 && (
+                      <div>
+                        <div className="border-bottom p-3 bg-light">
+                          <h6 className="mb-0">Completed Deliveries</h6>
+                        </div>
+                        <div className="table-responsive">
+                          <table className="table table-hover mb-0">
+                            <thead className="table-light">
+                              <tr>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th className="d-none d-lg-table-cell">Address</th>
+                                <th>Quantity</th>
+                                <th>Status</th>
+                                <th className="d-none d-lg-table-cell">Delivered At</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {completedDeliveries.map(delivery => (
+                                <tr key={delivery.id}>
+                                  <td>#{delivery.order_id}</td>
+                                  <td>
+                                    {delivery.customer_first_name} {delivery.customer_last_name}
+                                  </td>
+                                  <td className="d-none d-lg-table-cell">{delivery.customer_address}</td>
+                                  <td>{delivery.order_quantity}</td>
+                                  <td>
+                                    <span className="badge bg-success">Delivered</span>
+                                  </td>
+                                  <td className="d-none d-lg-table-cell">
+                                    <div className="d-flex align-items-center gap-1">
+                                      <Calendar size={14} className="text-muted" />
+                                      <span>{formatDate(delivery.delivered_at)}</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* No Deliveries Message */}
+                    {(!Array.isArray(deliveries) || deliveries.length === 0) && (
+                      <div className="text-center py-5">
+                        <Package size={48} className="text-muted mb-3" />
+                        <p className="text-muted mb-0">No deliveries found</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Mobile View - Grouped by Status */}
+                  <div className="d-md-none">
+
+                    
+                    {/* In-Route Deliveries */}
+                    {Array.isArray(inRouteDeliveries) && inRouteDeliveries.length > 0 && (
+                      <div className="mb-4">
+                        <div className="border-bottom p-3 bg-light">
+                          <h6 className="mb-0">In-Route Deliveries</h6>
+                        </div>
+                        <div className="list-group list-group-flush">
+                          {inRouteDeliveries.map(delivery => (
+                            <div key={delivery.id} className="list-group-item border-0 px-3 py-3">
+                              <div className="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                  <h6 className="mb-1">Order #{delivery.order_id}</h6>
+                                  <small className="text-muted">
+                                    {delivery.customer_first_name} {delivery.customer_last_name}
+                                  </small>
                                 </div>
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="6" className="text-center py-3">
-                              No completed deliveries found
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                                <span className="badge bg-primary">In Route</span>
+                              </div>
+                              
+                              <div className="mb-2">
+                                <small className="text-muted">Address:</small>
+                                <div>{delivery.customer_address}</div>
+                              </div>
+                              
+                              <div className="mb-2">
+                                <small className="text-muted">Quantity:</small>
+                                <div>{delivery.order_quantity}</div>
+                              </div>
+                              
+                              <div className="d-grid gap-2">
+                                <button 
+                                  className="btn btn-sm btn-success"
+                                  onClick={() => handleCompleteDelivery(delivery)}
+                                >
+                                  <CheckCircle size={14} className="me-1" /> Complete Delivery
+                                </button>
+                                <button 
+                                  className="btn btn-sm btn-danger"
+                                  onClick={() => handleCancelDelivery(delivery.id)}
+                                >
+                                  <X size={14} className="me-1" /> Cancel Delivery
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Completed Deliveries */}
+                    {Array.isArray(completedDeliveries) && completedDeliveries.length > 0 && (
+                      <div>
+                        <div className="border-bottom p-3 bg-light">
+                          <h6 className="mb-0">Completed Deliveries</h6>
+                        </div>
+                        <div className="list-group list-group-flush">
+                          {completedDeliveries.map(delivery => (
+                            <div key={delivery.id} className="list-group-item border-0 px-3 py-3">
+                              <div className="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                  <h6 className="mb-1">Order #{delivery.order_id}</h6>
+                                  <small className="text-muted">
+                                    {delivery.customer_first_name} {delivery.customer_last_name}
+                                  </small>
+                                </div>
+                                <span className="badge bg-success">Delivered</span>
+                              </div>
+                              
+                              <div className="mb-2">
+                                <small className="text-muted">Address:</small>
+                                <div>{delivery.customer_address}</div>
+                              </div>
+                              
+                              <div className="mb-2">
+                                <small className="text-muted">Quantity:</small>
+                                <div>{delivery.order_quantity}</div>
+                              </div>
+                              
+                              <div>
+                                <small className="text-muted">Delivered At:</small>
+                                <div>
+                                  <div className="d-flex align-items-center gap-1">
+                                    <Calendar size={14} className="text-muted" />
+                                    <span>{formatDate(delivery.delivered_at)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* No Deliveries Message */}
+                    {(!Array.isArray(deliveries) || deliveries.length === 0) && (
+                      <div className="text-center py-5">
+                        <Package size={48} className="text-muted mb-3" />
+                        <p className="text-muted mb-0">No deliveries found</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

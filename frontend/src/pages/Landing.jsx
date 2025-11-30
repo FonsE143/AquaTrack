@@ -117,7 +117,7 @@ export default function Landing() {
           <p className="text-muted fs-5 mt-2">
             AquaTrack provides powerful features to simplify your operations and boost efficiency.
           </p>
-          <div className="row mt-5">
+          <div className="row mt-5 g-4">
             {features.map((feature, index) => (
               <div key={index} className="col-12 col-md-6 col-lg-3 mb-4">
                 <div className="card h-100 shadow-sm border-0">

@@ -504,8 +504,8 @@ export default function AdminRoute() {
                 <thead className="table-light">
                   <tr>
                     <th>Route Number</th>
-                    <th>Municipality</th>
-                    <th>Barangays Covered</th>
+                    <th className="d-none d-md-table-cell">Municipality</th>
+                    <th className="d-none d-lg-table-cell">Barangays Covered</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -517,12 +517,27 @@ export default function AdminRoute() {
                       return (
                         <tr key={route.id} style={{ height: '80px' }}>
                           <td>
-                            <div className="d-flex align-items-center gap-2">
-                              <MapPin size={16} className="text-muted" />
-                              <span>Route {route.route_number}</span>
+                            <div className="d-flex flex-column">
+                              <div className="d-flex align-items-center gap-2">
+                                <MapPin size={16} className="text-muted" />
+                                <span className="fw-bold">Route {route.route_number}</span>
+                              </div>
+                              <div className="d-md-none mt-1">
+                                <div className="small text-muted">
+                                  {route.municipalities_detail?.map((municipality, idx) => (
+                                    <span key={idx}>
+                                      {municipality.name}{idx < route.municipalities_detail.length - 1 ? ', ' : ''}
+                                    </span>
+                                  ))}
+                                </div>
+                                <div className="small text-muted">
+                                  {formatBarangayNames(route).split(', ').slice(0, 2).join(', ')}
+                                  {formatBarangayNames(route).split(', ').length > 2 ? '...' : ''}
+                                </div>
+                              </div>
                             </div>
                           </td>
-                          <td>
+                          <td className="d-none d-md-table-cell">
                             <div className="d-flex flex-wrap gap-1">
                               {route.municipalities_detail?.map((municipality, idx) => (
                                 <span key={idx} className="badge bg-primary-subtle text-primary-emphasis">
@@ -531,7 +546,7 @@ export default function AdminRoute() {
                               ))}
                             </div>
                           </td>
-                          <td>
+                          <td className="d-none d-lg-table-cell">
                             <div className="d-flex flex-wrap gap-1">
                               {formatBarangayNames(route).split(', ').map((barangay, idx) => (
                                 <span key={idx} className="badge bg-secondary-subtle text-secondary-emphasis">

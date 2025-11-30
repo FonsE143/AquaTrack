@@ -56,6 +56,7 @@ const Profile = () => {
       default:
         return [
           { label: 'Dashboard', href: '/customer/dashboard' },
+          { label: 'Order History', href: '/customer/orders' },
         ]
     }
   }, [data])
@@ -305,7 +306,7 @@ const Profile = () => {
               <div className="card-body">
                 <form onSubmit={handleSubmit}>
                   <div className="row g-3">
-                    <div className="col-md-6">
+                    <div className="col-12 col-md-6">
                       <label className="form-label fw-medium">First Name</label>
                       <input
                         type="text"
@@ -315,7 +316,7 @@ const Profile = () => {
                         className="form-control"
                       />
                     </div>
-                    <div className="col-md-6">
+                    <div className="col-12 col-md-6">
                       <label className="form-label fw-medium">Last Name</label>
                       <input
                         type="text"
@@ -325,7 +326,7 @@ const Profile = () => {
                         className="form-control"
                       />
                     </div>
-                    <div className="col-md-6">
+                    <div className="col-12 col-md-6">
                       <label className="form-label fw-medium">Email</label>
                       <input
                         type="email"
@@ -336,7 +337,7 @@ const Profile = () => {
                         readOnly
                       />
                     </div>
-                    <div className="col-md-6">
+                    <div className="col-12 col-md-6">
                       <label className="form-label fw-medium">Phone</label>
                       <input
                         type="text"

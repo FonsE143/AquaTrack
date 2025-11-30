@@ -292,14 +292,15 @@ export default function StaffDeployment() {
                 </div>
               </div>
               <div className="card-body p-0">
-                <div className="table-responsive">
+                {/* Desktop Table View */}
+                <div className="table-responsive d-none d-md-block">
                   <table className="table table-hover mb-0">
                     <thead className="table-light">
                       <tr>
                         <th>Driver</th>
                         <th>Vehicle</th>
-                        <th className="d-none d-md-table-cell">Route</th>
-                        <th className="d-none d-md-table-cell">Product</th>
+                        <th>Route</th>
+                        <th>Product</th>
                         <th>Stock</th>
                         <th>Date</th>
                         <th>Actions</th>
@@ -309,31 +310,22 @@ export default function StaffDeployment() {
                       {Array.isArray(deployments) && deployments.map(deployment => (
                         <tr key={deployment.id}>
                           <td>
-                            <div className="d-flex flex-column">
-                              <span>{deployment.driver_first_name || 'N/A'} {deployment.driver_last_name || ''}</span>
-                              <span className="d-md-none text-muted small">{deployment.product_name || 'N/A'}</span>
-                            </div>
+                            {deployment.driver_first_name || 'N/A'} {deployment.driver_last_name || ''}
                           </td>
                           <td>
-                            <div className="d-flex flex-column">
-                              <span>{deployment.vehicle_name || 'N/A'}</span>
-                              <span className="d-md-none text-muted small">{deployment.vehicle_plate_number || 'N/A'}</span>
-                            </div>
+                            {deployment.vehicle_name || 'N/A'} ({deployment.vehicle_plate_number || 'N/A'})
                           </td>
-                          <td className="d-none d-md-table-cell">
+                          <td>
                             Route {deployment.route_number || 'N/A'} - {deployment.municipality_names || 'N/A'}
                           </td>
-                          <td className="d-none d-md-table-cell">
+                          <td>
                             {deployment.product_name || 'N/A'}
                           </td>
                           <td>
                             <span className="badge bg-primary">{deployment.stock || '0'}</span>
                           </td>
                           <td>
-                            <div className="d-flex flex-column">
-                              <span>{deployment.created_at ? new Date(deployment.created_at).toLocaleDateString() : 'N/A'}</span>
-                              <span className="d-md-none text-muted small">Route {deployment.route_number || 'N/A'}</span>
-                            </div>
+                            {deployment.created_at ? new Date(deployment.created_at).toLocaleDateString() : 'N/A'}
                           </td>
                           <td>
                             <div className="d-flex gap-2">
@@ -365,6 +357,68 @@ export default function StaffDeployment() {
                       )}
                     </tbody>
                   </table>
+                </div>
+                
+                {/* Mobile Card View */}
+                <div className="d-md-none p-3">
+                  <div className="row g-3">
+                    {Array.isArray(deployments) && deployments.map(deployment => (
+                      <div key={deployment.id} className="col-12">
+                        <div className="card shadow-sm border">
+                          <div className="card-body">
+                            <div className="d-flex justify-content-between align-items-start mb-2">
+                              <div>
+                                <h6 className="mb-1">{deployment.driver_first_name || 'N/A'} {deployment.driver_last_name || ''}</h6>
+                                <small className="text-muted">{deployment.vehicle_name || 'N/A'} ({deployment.vehicle_plate_number || 'N/A'})</small>
+                              </div>
+                              <span className="badge bg-primary">{deployment.stock || '0'} units</span>
+                            </div>
+                            
+                            <div className="mb-2">
+                              <small className="text-muted">Product:</small>
+                              <div>{deployment.product_name || 'N/A'}</div>
+                            </div>
+                            
+                            <div className="mb-2">
+                              <small className="text-muted">Route:</small>
+                              <div>Route {deployment.route_number || 'N/A'} - {deployment.municipality_names || 'N/A'}</div>
+                            </div>
+                            
+                            <div className="mb-3">
+                              <small className="text-muted">Date:</small>
+                              <div>{deployment.created_at ? new Date(deployment.created_at).toLocaleDateString() : 'N/A'}</div>
+                            </div>
+                            
+                            <div className="d-flex gap-2">
+                              <button 
+                                className="btn btn-primary btn-sm flex-fill"
+                                onClick={() => handleEditDeployment(deployment)}
+                                title="Edit deployment"
+                              >
+                                <Edit size={16} /> Edit
+                              </button>
+                              <button 
+                                className="btn btn-danger btn-sm flex-fill"
+                                onClick={() => handleDeleteDeployment(deployment.id)}
+                                title="Delete deployment"
+                                disabled={deleteDeploymentMutation.isLoading}
+                              >
+                                <Trash2 size={16} /> Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {(!Array.isArray(deployments) || deployments.length === 0) && (
+                      <div className="col-12 text-center py-5">
+                        <Package size={48} className="text-muted mb-3" />
+                        <h5 className="mb-1">No Deployments Found</h5>
+                        <p className="text-muted mb-0">There are currently no active deployments</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

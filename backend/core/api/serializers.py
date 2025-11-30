@@ -466,9 +466,9 @@ class DeliverySerializer(serializers.ModelSerializer):
     class Meta:
         model = Delivery
         fields = [
-            'id','order','order_id','order_product_name','order_quantity','order_free_items','order_total_quantity','driver','driver_username','driver_first_name','driver_last_name','driver_phone','vehicle','vehicle_name','route','route_number','status','customer_first_name','customer_last_name','customer_address','customer_phone','delivered_quantity','created_at','updated_at'
+            'id','order','order_id','order_product_name','order_quantity','order_free_items','order_total_quantity','driver','driver_username','driver_first_name','driver_last_name','driver_phone','vehicle','vehicle_name','route','route_number','status','customer_first_name','customer_last_name','customer_address','customer_phone','delivered_quantity','delivered_at','created_at','updated_at'
         ]
-        read_only_fields = ['delivered_quantity','created_at','updated_at']
+        read_only_fields = ['delivered_quantity','delivered_at','created_at','updated_at']
     
     def validate_eta_minutes(self, value):
         if value < 0:

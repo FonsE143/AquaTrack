@@ -141,11 +141,11 @@ export default function CustomerDashboard() {
 
         <div className="row g-4">
           {/* Active Drivers */}
-          <div className="col-lg-6">
+          <div className="col-12 col-lg-6">
             <div className="card border-0 shadow-sm h-100">
               <div className="card-header bg-white border-0 py-3">
                 <div className="d-flex align-items-center gap-2">
-                  <Truck className="text-success" size={72} />
+                  <Truck className="text-success" size={24} />
                   <h5 className="mb-0">Active Drivers</h5>
                 </div>
               </div>
@@ -153,19 +153,19 @@ export default function CustomerDashboard() {
                 {uniqueDrivers.length > 0 ? (
                   <div className="list-group list-group-flush">
                     {uniqueDrivers.map((deployment, index) => (
-                      <div key={index} className="list-group-item border-0 px-0 py-4">
-                        <div className="d-flex align-items-center gap-4">
-                          <div className="rounded-circle bg-success bg-opacity-10 p-4 text-success">
-                            <Truck size={60} />
+                      <div key={index} className="list-group-item border-0 px-0 py-3">
+                        <div className="d-flex align-items-center gap-3">
+                          <div className="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                            <Truck size={36} />
                           </div>
                           <div>
-                            <div className="fw-bold h3 mb-2">
+                            <div className="fw-bold mb-1">
                               Delivery Driver
                             </div>
-                            <div className="h5 mb-2">
+                            <div className="mb-1">
                               Phone: {deployment.driver_phone || 'N/A'}
                             </div>
-                            <div className="h5">
+                            <div>
                               Location: N/A
                             </div>
                           </div>
@@ -174,9 +174,9 @@ export default function CustomerDashboard() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-5">
-                    <Truck size={120} className="text-muted mb-4" />
-                    <p className="text-muted mb-0 h2">No active drivers</p>
+                  <div className="text-center py-4">
+                    <Truck size={48} className="text-muted mb-3" />
+                    <p className="text-muted mb-0">No active drivers</p>
                   </div>
                 )}
               </div>
@@ -184,7 +184,7 @@ export default function CustomerDashboard() {
           </div>
 
           {/* Available Stock Based on Driver Deployment */}
-          <div className="col-lg-6">
+          <div className="col-12 col-lg-6">
             <div className="card border-0 shadow-sm h-100">
               <div className="card-header bg-white border-0 py-3">
                 <div className="d-flex align-items-center gap-2">
@@ -198,19 +198,29 @@ export default function CustomerDashboard() {
                     <thead className="table-light">
                       <tr>
                         <th>Product</th>
-                        <th>Available Stock</th>
-                        <th>Driver</th>
+                        <th className="d-none d-md-table-cell">Available Stock</th>
+                        <th className="d-none d-lg-table-cell">Driver</th>
                       </tr>
                     </thead>
                     <tbody>
                       {barangayDeployments?.deployments && barangayDeployments.deployments.length > 0 ? (
                         barangayDeployments.deployments.slice(0, 5).map((deployment, index) => (
                           <tr key={index}>
-                            <td>{deployment.product_name || 'N/A'}</td>
                             <td>
+                              <div className="d-flex flex-column">
+                                <span>{deployment.product_name || 'N/A'}</span>
+                                <div className="d-md-none mt-1">
+                                  <span className="badge bg-primary">{deployment.stock || 0}</span>
+                                  <span className="small text-muted ms-2">
+                                    {deployment.driver_first_name} {deployment.driver_last_name}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="d-none d-md-table-cell">
                               <span className="badge bg-primary">{deployment.stock || 0}</span>
                             </td>
-                            <td>
+                            <td className="d-none d-lg-table-cell">
                               {deployment.driver_first_name} {deployment.driver_last_name}
                             </td>
                           </tr>
@@ -241,7 +251,8 @@ export default function CustomerDashboard() {
                 </div>
               </div>
               <div className="card-body p-0">
-                <div className="table-responsive" style={{ maxHeight: '250px', minHeight: '250px', overflowY: 'auto' }}>
+                {/* Desktop Table View */}
+                <div className="table-responsive d-none d-md-block" style={{ maxHeight: '250px', minHeight: '250px', overflowY: 'auto' }}>
                   <table className="table table-hover mb-0">
                     <thead className="table-light">
                       <tr>
@@ -294,6 +305,60 @@ export default function CustomerDashboard() {
                       )}
                     </tbody>
                   </table>
+                </div>
+                
+                {/* Mobile Card View */}
+                <div className="d-md-none" style={{ maxHeight: '250px', minHeight: '250px', overflowY: 'auto' }}>
+                  {Array.isArray(deliveries) && deliveries.length > 0 ? (
+                    <div className="list-group list-group-flush">
+                      {deliveries.map((delivery, index) => (
+                        <div key={index} className="list-group-item border-0 px-3 py-3">
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                              <h6 className="mb-1">Order #{delivery.order_id || 'N/A'}</h6>
+                              <small className="text-muted">{delivery.order_product_name || 'N/A'}</small>
+                            </div>
+                            <span className={`badge ${
+                              delivery.status === 'delivered' ? 'bg-success' : 
+                              delivery.status === 'in_route' ? 'bg-primary' : 
+                              delivery.status === 'assigned' ? 'bg-warning' : 
+                              delivery.status === 'cancelled' ? 'bg-danger' : 'bg-secondary'
+                            }`}>
+                              <div className="d-flex align-items-center gap-1">
+                                {delivery.status === 'delivered' && <CheckCircle size={12} />}
+                                {delivery.status === 'in_route' && <Truck size={12} />}
+                                {delivery.status === 'assigned' && <Clock size={12} />}
+                                {delivery.status === 'cancelled' && <XCircle size={12} />}
+                                {delivery.status ? delivery.status.replace('_', ' ').charAt(0).toUpperCase() + delivery.status.replace('_', ' ').slice(1) : 'N/A'}
+                              </div>
+                            </span>
+                          </div>
+                          
+                          <div className="mb-2">
+                            <small className="text-muted">Quantity:</small>
+                            <div>
+                              {delivery.order_quantity || 0}
+                              {delivery.order_free_items > 0 && (
+                                <span className="text-success ms-1">
+                                  <Gift size={12} /> +{delivery.order_free_items}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <small className="text-muted">Last Updated:</small>
+                            <div>{formatDate(delivery.updated_at)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-5">
+                      <Package size={48} className="text-muted mb-3" />
+                      <p className="text-muted mb-0">No orders found</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

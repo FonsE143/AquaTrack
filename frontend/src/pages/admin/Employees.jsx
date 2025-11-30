@@ -372,8 +372,8 @@ export default function AdminEmployees() {
             <tr>
               <th>Username</th>
               <th>Name</th>
-              <th>Email</th>
-              <th>Phone</th>
+              <th className="d-none d-md-table-cell">Email</th>
+              <th className="d-none d-lg-table-cell">Phone</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -384,17 +384,32 @@ export default function AdminEmployees() {
                 const user = currentStaff[index];
                 return (
                   <tr key={user.id} style={{ height: '80px' }}>
-                    <td>{user.username}</td>
-                    <td>{user.first_name} {user.last_name}</td>
-                    <td>{user.email}</td>
-                    <td>{user.phone || 'N/A'}</td>
                     <td>
-                      <div className="d-flex gap-2">
+                      <div className="d-flex flex-column">
+                        <span className="fw-bold">{user.username}</span>
+                        <span className="d-md-none text-muted small">
+                          {user.first_name} {user.last_name}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="d-none d-md-table-cell">
+                      {user.first_name} {user.last_name}
+                    </td>
+                    <td className="d-none d-md-table-cell">
+                      <div className="d-flex flex-column">
+                        <span>{user.email}</span>
+                        <span className="d-lg-none text-muted small">Phone: {user.phone || 'N/A'}</span>
+                      </div>
+                    </td>
+                    <td className="d-none d-lg-table-cell">{user.phone || 'N/A'}</td>
+                    <td>
+                      <div className="d-flex gap-1 gap-md-2">
                         <button 
                           className="btn btn-primary btn-sm"
                           onClick={() => openEditModal(user)}
                         >
                           <Edit size={16} />
+                          <span className="d-none d-md-inline ms-1">Edit</span>
                         </button>
                         <button 
                           className="btn btn-danger btn-sm"
@@ -409,6 +424,7 @@ export default function AdminEmployees() {
                           disabled={deleteStaffMutation.isLoading}
                         >
                           <Trash2 size={16} />
+                          <span className="d-none d-md-inline ms-1">Delete</span>
                         </button>
                       </div>
                     </td>
@@ -437,8 +453,8 @@ export default function AdminEmployees() {
             <tr>
               <th>Username</th>
               <th>Name</th>
-              <th>Email</th>
-              <th>Phone</th>
+              <th className="d-none d-md-table-cell">Email</th>
+              <th className="d-none d-lg-table-cell">Phone</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -449,17 +465,32 @@ export default function AdminEmployees() {
                 const user = currentDrivers[index];
                 return (
                   <tr key={user.id} style={{ height: '80px' }}>
-                    <td>{user.username}</td>
-                    <td>{user.first_name} {user.last_name}</td>
-                    <td>{user.email}</td>
-                    <td>{user.phone || 'N/A'}</td>
                     <td>
-                      <div className="d-flex gap-2">
+                      <div className="d-flex flex-column">
+                        <span className="fw-bold">{user.username}</span>
+                        <span className="d-md-none text-muted small">
+                          {user.first_name} {user.last_name}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="d-none d-md-table-cell">
+                      {user.first_name} {user.last_name}
+                    </td>
+                    <td className="d-none d-md-table-cell">
+                      <div className="d-flex flex-column">
+                        <span>{user.email}</span>
+                        <span className="d-lg-none text-muted small">Phone: {user.phone || 'N/A'}</span>
+                      </div>
+                    </td>
+                    <td className="d-none d-lg-table-cell">{user.phone || 'N/A'}</td>
+                    <td>
+                      <div className="d-flex gap-1 gap-md-2">
                         <button 
                           className="btn btn-primary btn-sm"
                           onClick={() => openEditModal(user)}
                         >
                           <Edit size={16} />
+                          <span className="d-none d-md-inline ms-1">Edit</span>
                         </button>
                         <button 
                           className="btn btn-danger btn-sm"
@@ -474,6 +505,7 @@ export default function AdminEmployees() {
                           disabled={deleteDriverMutation.isLoading}
                         >
                           <Trash2 size={16} />
+                          <span className="d-none d-md-inline ms-1">Delete</span>
                         </button>
                       </div>
                     </td>
@@ -501,8 +533,8 @@ export default function AdminEmployees() {
           <thead className="table-light">
             <tr>
               <th>Name</th>
-              <th>Plate Number</th>
-              <th>Stock Limit</th>
+              <th className="d-none d-md-table-cell">Plate Number</th>
+              <th className="d-none d-lg-table-cell">Stock Limit</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -513,11 +545,21 @@ export default function AdminEmployees() {
                 const vehicle = currentVehicles[index];
                 return (
                   <tr key={vehicle.id} style={{ height: '80px' }}>
-                    <td>{vehicle.name}</td>
-                    <td>{vehicle.plate_number}</td>
-                    <td>{vehicle.stock_limit}</td>
                     <td>
-                      <div className="d-flex gap-2">
+                      <div className="d-flex flex-column">
+                        <span className="fw-bold">{vehicle.name}</span>
+                        <span className="d-md-none text-muted small">
+                          Plate: {vehicle.plate_number}
+                        </span>
+                        <span className="d-lg-none text-muted small">
+                          Stock: {vehicle.stock_limit}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="d-none d-md-table-cell">{vehicle.plate_number}</td>
+                    <td className="d-none d-lg-table-cell">{vehicle.stock_limit}</td>
+                    <td>
+                      <div className="d-flex gap-1 gap-md-2">
                         <button 
                           className="btn btn-primary btn-sm"
                           onClick={() => {
@@ -527,6 +569,7 @@ export default function AdminEmployees() {
                           }}
                         >
                           <Edit size={16} />
+                          <span className="d-none d-md-inline ms-1">Edit</span>
                         </button>
                         <button 
                           className="btn btn-danger btn-sm"
@@ -543,6 +586,7 @@ export default function AdminEmployees() {
                           }}
                         >
                           <Trash2 size={16} />
+                          <span className="d-none d-md-inline ms-1">Delete</span>
                         </button>
                       </div>
                     </td>
