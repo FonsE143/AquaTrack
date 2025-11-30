@@ -180,10 +180,13 @@ class Delivery(models.Model):
 
     def save(self, *args, **kwargs):
         # Ensure delivered_at is set for delivered orders
+        print(f"Saving delivery with status: {self.status}, delivered_at: {self.delivered_at}")
         if self.status == 'delivered' and self.delivered_at is None:
             from django.utils import timezone
             self.delivered_at = timezone.now()
+            print(f"Set delivered_at to: {self.delivered_at}")
         super().save(*args, **kwargs)
+        print(f"Delivery saved with ID: {self.id}, status: {self.status}")
 
 class Notification(models.Model):
     TYPE = [('sms','SMS'),('email','Email'),('inapp','In-App')]

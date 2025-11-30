@@ -21,7 +21,7 @@ export default function AdminActivityLogs() {
   // Fetch activity logs
   const { data: activityLogs, isLoading } = useQuery({
     queryKey: ['activity-logs'],
-    queryFn: async () => (await api.get('/activity-logs/')).data.results || (await api.get('/activity-logs/')).data || [],
+    queryFn: async () => (await api.get('/activity/')).data.results || (await api.get('/activity/')).data || [],
   })
 
   // Filter logs based on selected filter

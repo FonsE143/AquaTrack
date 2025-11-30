@@ -332,12 +332,12 @@ class StaffViewSet(viewsets.ModelViewSet):
             'phone': profile.phone,
             'address': profile.address.id if profile.address else None,
             'address_detail': {
-                'id': profile.address.id,
-                'full_address': profile.address.full_address,
-                'barangay': profile.address.barangay.id,
-                'municipality': profile.address.barangay.municipality.id,
-                'barangay_name': profile.address.barangay.name,
-                'municipality_name': profile.address.barangay.municipality.name
+                'id': profile.address.id if profile.address else None,
+                'full_address': profile.address.full_address if profile.address else None,
+                'barangay': profile.address.barangay.id if profile.address and profile.address.barangay else None,
+                'municipality': profile.address.barangay.municipality.id if profile.address and profile.address.barangay and profile.address.barangay.municipality else None,
+                'barangay_name': profile.address.barangay.name if profile.address and profile.address.barangay else None,
+                'municipality_name': profile.address.barangay.municipality.name if profile.address and profile.address.barangay and profile.address.barangay.municipality else None
             } if profile.address else None
         }
         return Response(serialized_data, status=status.HTTP_201_CREATED)
@@ -413,12 +413,12 @@ class DriverViewSet(viewsets.ModelViewSet):
             'phone': profile.phone,
             'address': profile.address.id if profile.address else None,
             'address_detail': {
-                'id': profile.address.id,
-                'full_address': profile.address.full_address,
-                'barangay': profile.address.barangay.id,
-                'municipality': profile.address.barangay.municipality.id,
-                'barangay_name': profile.address.barangay.name,
-                'municipality_name': profile.address.barangay.municipality.name
+                'id': profile.address.id if profile.address else None,
+                'full_address': profile.address.full_address if profile.address else None,
+                'barangay': profile.address.barangay.id if profile.address and profile.address.barangay else None,
+                'municipality': profile.address.barangay.municipality.id if profile.address and profile.address.barangay and profile.address.barangay.municipality else None,
+                'barangay_name': profile.address.barangay.name if profile.address and profile.address.barangay else None,
+                'municipality_name': profile.address.barangay.municipality.name if profile.address and profile.address.barangay and profile.address.barangay.municipality else None
             } if profile.address else None
         }
         return Response(serialized_data, status=status.HTTP_201_CREATED)
@@ -541,9 +541,9 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             result = queryset.filter(
                 driver=driver_profile
             ).exclude(
-                Q(order__status='delivered') & Q(status='completed')
+                Q(status='delivered')
             ).exclude(
-                order__status='cancelled'
+                status='cancelled'
             )
             
             # Debug information
@@ -556,7 +556,7 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             # Print details of all deliveries for this driver
             all_driver_deliveries = queryset.filter(driver=driver_profile)
             for delivery in all_driver_deliveries:
-                print(f"Delivery ID: {delivery.id}, Status: {delivery.status}, Order ID: {delivery.order.id}, Order Status: {delivery.order.status}")
+                print(f"Delivery ID: {delivery.id}, Status: {delivery.status}, Order ID: {delivery.order.id}")
             
             return result
         # Staff can see all deliveries that are not queued
@@ -605,9 +605,9 @@ class DeliveryViewSet(viewsets.ModelViewSet):
                 ).filter(
                     driver=request.user.profile
                 ).exclude(
-                    Q(status='delivered')
+                    status='delivered'
                 ).exclude(
-                    Q(status='cancelled')
+                    status='cancelled'
                 ).order_by('-created_at')
                 
                 serializer = self.get_serializer(deliveries, many=True)
@@ -657,27 +657,6 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def update(self, request, *args, **kwargs):
-        # Get the delivery object
-        delivery = self.get_object()
-        
-        # Check permissions
-        if not hasattr(request.user, 'profile'):
-            raise PermissionDenied('User profile not found')
-            
-        user_profile = request.user.profile
-        
-        # Drivers can only update their own deliveries
-        if user_profile.role == 'driver' and delivery.driver != user_profile:
-            raise PermissionDenied('You can only update your own deliveries')
-        
-        # Admin can update all deliveries
-        if user_profile.role != 'admin' and user_profile.role != 'driver':
-            raise PermissionDenied('You do not have permission to perform this action')
-        
-        # Call the parent update method
-        return super().update(request, *args, **kwargs)
-    
-    def partial_update(self, request, *args, **kwargs):
         try:
             # Get the delivery object
             delivery = self.get_object()
@@ -700,30 +679,118 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             print(f"Updating delivery {delivery.id} with data: {request.data}")
             
             # Process the update
-            serializer = self.get_serializer(delivery, data=request.data, partial=True)
+            serializer = self.get_serializer(delivery, data=request.data)
             if not serializer.is_valid():
                 print(f"Serializer errors: {serializer.errors}")
                 return Response(serializer.errors, status=400)
             
             # Check if this is a delivery completion with delivered quantity
-            if serializer.validated_data.get('status') == 'delivered' and hasattr(delivery, '_delivered_quantity'):
-                delivered_quantity = delivery._delivered_quantity
+            # Always check for delivered_quantity in validated_data, not just hasattr(delivery, '_delivered_quantity')
+            if serializer.validated_data.get('status') == 'delivered' and 'delivered_quantity' in serializer.validated_data:
+                delivered_quantity = serializer.validated_data.get('delivered_quantity')
+                print(f"Processing delivery completion with quantity: {delivered_quantity}")
                 
                 # Update deployment stock if driver has a deployment
-                if delivery.driver:
+                if delivery.driver and delivery.order and delivery.order.product:
                     try:
                         from core.models import Deployment
+                        print(f"Looking for deployment for driver {delivery.driver.id} and product {delivery.order.product.id}")
                         deployment = Deployment.objects.filter(driver=delivery.driver, product=delivery.order.product).first()
-                        if deployment and deployment.stock >= delivered_quantity:
-                            deployment.stock -= delivered_quantity
-                            deployment.save()
-                            print(f"Reduced deployment stock by {delivered_quantity}. New stock: {deployment.stock}")
-                        elif deployment:
-                            print(f"Insufficient stock in deployment. Available: {deployment.stock}, Needed: {delivered_quantity}")
+                        if deployment:
+                            print(f"Found deployment with stock {deployment.stock}")
+                            if deployment.stock >= delivered_quantity:
+                                deployment.stock -= delivered_quantity
+                                deployment.save()
+                                print(f"Reduced deployment stock by {delivered_quantity}. New stock: {deployment.stock}")
+                            else:
+                                print(f"Insufficient stock in deployment. Available: {deployment.stock}, Needed: {delivered_quantity}")
+                                # Don't fail the delivery if stock is insufficient, just log it
+                        else:
+                            print(f"No deployment found for driver {delivery.driver.id} and product {delivery.order.product.id}")
+                            # Don't fail the delivery if no deployment is found, just log it
                     except Exception as e:
                         print(f"Error updating deployment stock: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        # Don't fail the delivery if there's an error updating deployment stock, just log it
             
+            print(f"About to perform update")
             self.perform_update(serializer)
+            print(f"Update performed successfully")
+            
+            return Response(serializer.data)
+        except Exception as e:
+            print(f"Error in update: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
+    
+    def partial_update(self, request, *args, **kwargs):
+        try:
+            # Get the delivery object
+            delivery = self.get_object()
+            print(f"Got delivery object: {delivery.id}")
+            
+            # Check permissions
+            if not hasattr(request.user, 'profile'):
+                raise PermissionDenied('User profile not found')
+                
+            user_profile = request.user.profile
+            print(f"User profile: {user_profile.id}, role: {user_profile.role}")
+            
+            # Drivers can only update their own deliveries
+            if user_profile.role == 'driver' and delivery.driver != user_profile:
+                raise PermissionDenied('You can only update your own deliveries')
+            
+            # Admin can update all deliveries
+            if user_profile.role != 'admin' and user_profile.role != 'driver':
+                raise PermissionDenied('You do not have permission to perform this action')
+            
+            # Debug information
+            print(f"Updating delivery {delivery.id} with data: {request.data}")
+            
+            # Process the update
+            serializer = self.get_serializer(delivery, data=request.data, partial=True)
+            print(f"Got serializer: {serializer}")
+            if not serializer.is_valid():
+                print(f"Serializer errors: {serializer.errors}")
+                return Response(serializer.errors, status=400)
+            
+            print(f"Serializer validated data: {serializer.validated_data}")
+            
+            # Check if this is a delivery completion with delivered quantity
+            # Always check for delivered_quantity in validated_data, not just hasattr(delivery, '_delivered_quantity')
+            if serializer.validated_data.get('status') == 'delivered' and 'delivered_quantity' in serializer.validated_data:
+                delivered_quantity = serializer.validated_data.get('delivered_quantity')
+                print(f"Processing delivery completion with quantity: {delivered_quantity}")
+                
+                # Update deployment stock if driver has a deployment
+                if delivery.driver and delivery.order and delivery.order.product:
+                    try:
+                        from core.models import Deployment
+                        print(f"Looking for deployment for driver {delivery.driver.id} and product {delivery.order.product.id}")
+                        deployment = Deployment.objects.filter(driver=delivery.driver, product=delivery.order.product).first()
+                        if deployment:
+                            print(f"Found deployment with stock {deployment.stock}")
+                            if deployment.stock >= delivered_quantity:
+                                deployment.stock -= delivered_quantity
+                                deployment.save()
+                                print(f"Reduced deployment stock by {delivered_quantity}. New stock: {deployment.stock}")
+                            else:
+                                print(f"Insufficient stock in deployment. Available: {deployment.stock}, Needed: {delivered_quantity}")
+                                # Don't fail the delivery if stock is insufficient, just log it
+                        else:
+                            print(f"No deployment found for driver {delivery.driver.id} and product {delivery.order.product.id}")
+                            # Don't fail the delivery if no deployment is found, just log it
+                    except Exception as e:
+                        print(f"Error updating deployment stock: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        # Don't fail the delivery if there's an error updating deployment stock, just log it
+            
+            print(f"About to perform update")
+            self.perform_update(serializer)
+            print(f"Update performed successfully")
             
             return Response(serializer.data)
         except Exception as e:
@@ -733,7 +800,17 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=500)
     
     def perform_update(self, serializer):
-        serializer.save()
+        print(f"Performing update with serializer: {serializer}")
+        try:
+            print(f"About to call serializer.save()")
+            result = serializer.save()
+            print(f"Update completed successfully with result: {result}")
+            return result
+        except Exception as e:
+            print(f"Error in perform_update: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
     
     @action(detail=False, methods=['post'])
     def auto_dispatch(self, request):
@@ -907,13 +984,22 @@ class UsersViewSet(viewsets.ViewSet):
     
     def create(self, request):
         # Determine the appropriate endpoint based on the role in the request data
-        role = request.data.get('role', '').lower()
+        # Handle both DRF Request objects and standard Django HttpRequest objects
+        if hasattr(request, 'data'):
+            role = request.data.get('role', '').lower()
+        else:
+            # For standard Django requests, get data from POST
+            role = request.POST.get('role', '').lower()
         
         if role == 'driver':
             # Create a driver using DriverViewSet's create method directly
             try:
                 # Remove the role field from the data for the driver creation
-                driver_data = request.data.copy()
+                # Handle both DRF Request objects and standard Django HttpRequest objects
+                if hasattr(request, 'data'):
+                    driver_data = request.data.copy()
+                else:
+                    driver_data = request.POST.copy()
                 if 'role' in driver_data:
                     del driver_data['role']
                 
@@ -923,6 +1009,7 @@ class UsersViewSet(viewsets.ViewSet):
                         self.user = user
                         self.data = data
                         self.META = {}
+                        self.method = 'POST'
                 
                 mock_request = MockRequest(request.user, driver_data)
                 
@@ -937,7 +1024,11 @@ class UsersViewSet(viewsets.ViewSet):
             # Create a staff member using StaffViewSet's create method directly
             try:
                 # Remove the role field from the data for the staff creation
-                staff_data = request.data.copy()
+                # Handle both DRF Request objects and standard Django HttpRequest objects
+                if hasattr(request, 'data'):
+                    staff_data = request.data.copy()
+                else:
+                    staff_data = request.POST.copy()
                 if 'role' in staff_data:
                     del staff_data['role']
                 
@@ -947,6 +1038,7 @@ class UsersViewSet(viewsets.ViewSet):
                         self.user = user
                         self.data = data
                         self.META = {}
+                        self.method = 'POST'
                 
                 mock_request = MockRequest(request.user, staff_data)
                 

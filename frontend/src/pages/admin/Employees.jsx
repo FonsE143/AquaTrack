@@ -245,9 +245,8 @@ export default function AdminEmployees() {
         role: activeTab === 'staff' ? 'staff' : 'driver'
       }
       
-      // Add password for new users
+      // For new users, don't send password as backend sets default passwords
       if (modalType === 'create') {
-        userData.password = activeTab === 'staff' ? 'staffpassword' : 'driverpassword'
         createUserMutation.mutate(userData)
       } else {
         updateUserMutation.mutate({ userId: currentItem.id, userData })
@@ -359,13 +358,6 @@ export default function AdminEmployees() {
               defaultValue={currentItem?.phone || ''}
             />
           </div>
-          {modalType === 'create' && (
-            <input 
-              type="hidden" 
-              name="password" 
-              value={activeTab === 'staff' ? 'staffpassword' : 'driverpassword'} 
-            />
-          )}
         </>
       )
     }

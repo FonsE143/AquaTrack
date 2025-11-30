@@ -411,6 +411,11 @@ class OrderSerializer(serializers.ModelSerializer):
         return order
 
 class DeliverySerializer(serializers.ModelSerializer):
+    def is_valid(self, raise_exception=False):
+        print(f"Serializer is_valid called with data: {self.initial_data}")
+        result = super().is_valid(raise_exception=raise_exception)
+        print(f"Serializer validation result: {result}, errors: {self.errors}")
+        return result
     order_id = serializers.IntegerField(source='order.id', read_only=True)
     order_product_name = serializers.CharField(source='order.product.name', read_only=True)
     order_quantity = serializers.IntegerField(source='order.quantity', read_only=True)
@@ -447,12 +452,15 @@ class DeliverySerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         # Handle delivered quantity update
+        print(f"Serializer update called with validated_data: {validated_data}")
         delivered_quantity = validated_data.pop('delivered_quantity', None)
         if delivered_quantity is not None:
             # Store the delivered quantity in the instance (we'll use it in the view)
             instance._delivered_quantity = delivered_quantity
+            print(f"Stored _delivered_quantity on instance: {delivered_quantity}")
         
         # Update other fields
+        print(f"Updating instance with validated_data: {validated_data}")
         return super().update(instance, validated_data)
     
     class Meta:
