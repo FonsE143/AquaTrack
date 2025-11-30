@@ -432,8 +432,8 @@ class DeliverySerializer(serializers.ModelSerializer):
     customer_last_name = serializers.CharField(source='order.customer.last_name', read_only=True, allow_null=True)
     customer_address = serializers.SerializerMethodField(read_only=True)
     customer_phone = serializers.CharField(source='order.customer.phone', read_only=True, allow_null=True)
-    # Add delivered quantity field for updates
-    delivered_quantity = serializers.IntegerField(write_only=True, required=False)
+    # Add delivered quantity field
+    delivered_quantity = serializers.IntegerField(required=False)
     
     def get_order_total_quantity(self, obj):
         return obj.order.quantity + obj.order.free_items
@@ -455,9 +455,9 @@ class DeliverySerializer(serializers.ModelSerializer):
         print(f"Serializer update called with validated_data: {validated_data}")
         delivered_quantity = validated_data.pop('delivered_quantity', None)
         if delivered_quantity is not None:
-            # Store the delivered quantity in the instance (we'll use it in the view)
-            instance._delivered_quantity = delivered_quantity
-            print(f"Stored _delivered_quantity on instance: {delivered_quantity}")
+            # Store the delivered quantity in the instance
+            instance.delivered_quantity = delivered_quantity
+            print(f"Stored delivered_quantity on instance: {delivered_quantity}")
         
         # Update other fields
         print(f"Updating instance with validated_data: {validated_data}")
@@ -466,9 +466,9 @@ class DeliverySerializer(serializers.ModelSerializer):
     class Meta:
         model = Delivery
         fields = [
-            'id','order','order_id','order_product_name','order_quantity','order_free_items','order_total_quantity','driver','driver_username','driver_first_name','driver_last_name','driver_phone','vehicle','vehicle_name','route','route_number','status','customer_first_name','customer_last_name','customer_address','customer_phone','delivered_quantity'
+            'id','order','order_id','order_product_name','order_quantity','order_free_items','order_total_quantity','driver','driver_username','driver_first_name','driver_last_name','driver_phone','vehicle','vehicle_name','route','route_number','status','customer_first_name','customer_last_name','customer_address','customer_phone','delivered_quantity','created_at','updated_at'
         ]
-        read_only_fields = []
+        read_only_fields = ['delivered_quantity','created_at','updated_at']
     
     def validate_eta_minutes(self, value):
         if value < 0:

@@ -839,7 +839,7 @@ class ReportViewSet(views.APIView):
         sales = Order.objects.filter(
             id__in=order_ids
         ).values('created_at__date').annotate(
-            total=Sum('product__price'), orders=Count('id')
+            total=Sum(F('product__price') * F('quantity')), orders=Count('id')
         ).order_by('-created_at__date')[:30]
         # Normalize sales dates to ISO strings and totals to floats for frontend charting
         sales_list = []
@@ -866,7 +866,7 @@ class ReportViewSet(views.APIView):
             'customer__user__username',
             'customer__first_name',
             'customer__last_name'
-        ).annotate(spend=Sum('product__price')).order_by('-spend')[:10]
+        ).annotate(spend=Sum(F('product__price') * F('quantity'))).order_by('-spend')[:10]
         today = timezone.now().date()
         start_of_week = today - timedelta(days=today.weekday())
         start_of_month = today.replace(day=1)
@@ -875,14 +875,19 @@ class ReportViewSet(views.APIView):
             # Note: Orders don't have a status field, so we need to join with Delivery
             delivered_orders = Delivery.objects.filter(status='delivered', order__created_at__date__gte=start_date).select_related('order')
             order_ids = [delivery.order.id for delivery in delivered_orders]
-            return Order.objects.filter(id__in=order_ids).aggregate(total=Sum('product__price'))['total'] or 0
+            return Order.objects.filter(id__in=order_ids).aggregate(total=Sum(F('product__price') * F('quantity')))['total'] or 0
 
         # Note: Orders don't have a status field, so we need to join with Delivery
         delivered_today_orders = Delivery.objects.filter(status='delivered', order__created_at__date=today).select_related('order')
         today_order_ids = [delivery.order.id for delivery in delivered_today_orders]
         
+        # Get total orders for the current week
+        delivered_week_orders = Delivery.objects.filter(status='delivered', order__created_at__date__gte=start_of_week).select_related('order')
+        week_order_ids = [delivery.order.id for delivery in delivered_week_orders]
+        total_orders = Order.objects.filter(id__in=week_order_ids).count()
+        
         revenue_summary = {
-            'today': float(Order.objects.filter(id__in=today_order_ids).aggregate(total=Sum('product__price'))['total'] or 0),
+            'today': float(Order.objects.filter(id__in=today_order_ids).aggregate(total=Sum(F('product__price') * F('quantity')))['total'] or 0),
             'week': float(aggregate_total(start_of_week)),
             'month': float(aggregate_total(start_of_month)),
         }
@@ -910,6 +915,7 @@ class ReportViewSet(views.APIView):
             'to_be_returned': to_be_returned,
             'top_customers': list(top_customers),
             'revenue_summary': revenue_summary,
+            'total_orders': total_orders,
             'recent_deliveries': recent_deliveries_data
         })
     

@@ -66,7 +66,8 @@ export default function CustomerOrders() {
                         <tr>
                           <th>Order ID</th>
                           <th>Product</th>
-                          <th>Quantity</th>
+                          <th>Ordered Quantity</th>
+                          <th>Delivered Quantity</th>
                           <th>Status</th>
                           <th>Created At</th>
                           <th>Last Updated</th>
@@ -92,6 +93,9 @@ export default function CustomerOrders() {
                                 )}
                               </td>
                               <td>
+                                {delivery.delivered_quantity || delivery.order_quantity || 0}
+                              </td>
+                              <td>
                                 <span className={`badge ${
                                   delivery.status === 'delivered' ? 'bg-success' : 
                                   delivery.status === 'cancelled' ? 'bg-danger' : 'bg-secondary'
@@ -109,7 +113,7 @@ export default function CustomerOrders() {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="6" className="text-center py-5">
+                            <td colSpan="7" className="text-center py-5">
                               <Package size={48} className="text-muted mb-3" />
                               <p className="text-muted mb-0 h4">No completed or cancelled orders found</p>
                               <p className="text-muted">Your completed orders will appear here once delivered or cancelled</p>
