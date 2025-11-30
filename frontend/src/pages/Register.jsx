@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Droplet } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
@@ -13,11 +13,55 @@ export default function Register() {
     password: '',
     confirmPassword: '',
     phone: '',
-    address: ''
+    municipality: '',
+    barangay: '',
+    address_details: ''
   });
+  
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [municipalities, setMunicipalities] = useState([]);
+  const [barangays, setBarangays] = useState([]);
   const navigate = useNavigate();
+
+  // Fetch municipalities on component mount
+  useEffect(() => {
+    const fetchMunicipalities = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/municipalities/`);
+        const data = Array.isArray(response.data) ? response.data : 
+                    (response.data.results && Array.isArray(response.data.results) ? response.data.results : []);
+        setMunicipalities(data);
+      } catch (err) {
+        console.error('Failed to fetch municipalities:', err);
+        setMunicipalities([]);
+      }
+    };
+    
+    fetchMunicipalities();
+  }, []);
+
+  // Fetch barangays when municipality changes
+  useEffect(() => {
+    if (formData.municipality) {
+      const fetchBarangays = async () => {
+        try {
+          const response = await axios.get(`${API_BASE_URL}/barangays/?municipality=${formData.municipality}`);
+          const data = Array.isArray(response.data) ? response.data : 
+                      (response.data.results && Array.isArray(response.data.results) ? response.data.results : []);
+          setBarangays(data);
+        } catch (err) {
+          console.error('Failed to fetch barangays:', err);
+          setBarangays([]);
+        }
+      };
+      
+      fetchBarangays();
+    } else {
+      setBarangays([]);
+    }
+  }, [formData.municipality]);
 
   const isFormValid = formData.username.trim() !== '' && 
                      formData.email.trim() !== '' && 
@@ -27,6 +71,7 @@ export default function Register() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
@@ -40,16 +85,32 @@ export default function Register() {
     
     setLoading(true);
     try {
-      await axios.post(`${API_BASE_URL}/api/account/register/`, {
+      await axios.post(`${API_BASE_URL}/account/register/`, {
         username: formData.username,
         email: formData.email,
         password: formData.password,
         phone: formData.phone,
-        address: formData.address
+        municipality: formData.municipality,
+        barangay: formData.barangay,
+        address_details: formData.address_details
       });
       
+      setSuccess('Registration successful! Please login.');
+      // Clear form
+      setFormData({
+        username: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        phone: '',
+        municipality: '',
+        barangay: '',
+        address_details: ''
+      });
       // Redirect to login after successful registration
-      navigate('/login', { state: { message: 'Registration successful! Please login.' } });
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err) {
       const errorMessage = err.response?.data?.error || 
                           err.response?.data?.username?.[0] ||
@@ -71,7 +132,7 @@ export default function Register() {
         {/* Logo + Brand */}
         <div className="text-center mb-4">
           <Droplet className="text-success mb-1" size={30} />
-          <h5 className="fw-bold text-success mb-1">AquaTrack</h5>
+          <h5 className="fw-bold text-success mb-1">AquaFlow</h5>
         </div>
 
         {/* Title + Subtext */}
@@ -79,6 +140,11 @@ export default function Register() {
         <p className="text-muted text-center small mb-4">
           Sign up to start ordering water delivery.
         </p>
+
+        {/* Success Message */}
+        {success && (
+          <div className="alert alert-success py-2 text-center small">{success}</div>
+        )}
 
         {/* Error */}
         {error && (
@@ -151,16 +217,59 @@ export default function Register() {
           />
         </div>
 
-        {/* Address */}
+        {/* Address Section */}
         <div className="mb-4">
-          <label className="form-label fw-semibold small">Address</label>
-          <textarea
-            className="form-control"
-            placeholder="Enter your delivery address"
-            value={formData.address}
-            onChange={(e) => setFormData({...formData, address: e.target.value})}
-            rows="2"
-          />
+          <h6 className="fw-semibold mb-3">Delivery Address</h6>
+          
+          {/* Municipality */}
+          <div className="mb-3">
+            <label className="form-label fw-semibold small">Municipality *</label>
+            <select
+              className="form-select"
+              value={formData.municipality}
+              onChange={(e) => setFormData({...formData, municipality: e.target.value, barangay: ''})}
+              required
+            >
+              <option value="">Select Municipality</option>
+              {municipalities.map(municipality => (
+                <option key={municipality.id} value={municipality.id}>
+                  {municipality.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Barangay */}
+          <div className="mb-3">
+            <label className="form-label fw-semibold small">Barangay *</label>
+            <select
+              className="form-select"
+              value={formData.barangay}
+              onChange={(e) => setFormData({...formData, barangay: e.target.value})}
+              disabled={!formData.municipality}
+              required
+            >
+              <option value="">Select Barangay</option>
+              {barangays.map(barangay => (
+                <option key={barangay.id} value={barangay.id}>
+                  {barangay.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Address Details */}
+          <div className="mb-3">
+            <label className="form-label fw-semibold small">House Number / Lot Number / Street *</label>
+            <textarea
+              className="form-control"
+              placeholder="Enter your complete address"
+              value={formData.address_details}
+              onChange={(e) => setFormData({...formData, address_details: e.target.value})}
+              rows="2"
+              required
+            />
+          </div>
         </div>
 
         {/* Submit */}
@@ -185,10 +294,3 @@ export default function Register() {
     </div>
   );
 }
-
-
-
-
-
-
-

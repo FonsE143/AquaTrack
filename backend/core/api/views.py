@@ -1,7 +1,7 @@
 from rest_framework import viewsets, views, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import PermissionDenied, NotFound
 from django.db.models import Sum, Count, F, Q
 from django.utils import timezone
@@ -32,8 +32,11 @@ class MunicipalityViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_permissions(self):
+        # Allow public access for listing municipalities (needed for registration)
         # Admin can manage municipalities; others can only view
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action == 'list':
+            return [AllowAny()]  # No authentication required for listing
+        elif self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAuthenticated(), IsRole('admin')]
         return [IsAuthenticated()]
 
@@ -44,8 +47,11 @@ class BarangayViewSet(viewsets.ModelViewSet):
     pagination_class = None  # Disable pagination for barangays
     
     def get_permissions(self):
+        # Allow public access for listing barangays (needed for registration)
         # Admin can manage barangays; others can only view
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action == 'list':
+            return [AllowAny()]  # No authentication required for listing
+        elif self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAuthenticated(), IsRole('admin')]
         return [IsAuthenticated()]
     
@@ -279,9 +285,17 @@ class StaffViewSet(viewsets.ModelViewSet):
         return super().get_queryset()
     
     def create(self, request, *args, **kwargs):
+        # Check if username already exists
+        username = request.data.get('username')
+        if User.objects.filter(username=username).exists():
+            return Response(
+                {'error': 'Username already exists'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Create user first
         user_data = {
-            'username': request.data.get('username'),
+            'username': username,
             'email': request.data.get('email', ''),
             'first_name': request.data.get('first_name', ''),
             'last_name': request.data.get('last_name', ''),
@@ -364,8 +378,14 @@ class DriverViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_permissions(self):
-        # Only admin can manage drivers
-        return [IsAuthenticated(), IsRole('admin')]
+        # Admin can manage drivers, staff can view drivers
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), IsRole('admin')]
+        elif self.action in ['list', 'retrieve']:
+            # Both admin and staff can view drivers
+            return [IsAuthenticated(), IsRole('admin', 'staff')]
+        else:
+            return [IsAuthenticated(), IsRole('admin')]
     
     def get_queryset(self):
         # For listing, we only show drivers
@@ -375,9 +395,17 @@ class DriverViewSet(viewsets.ModelViewSet):
         return super().get_queryset()
     
     def create(self, request, *args, **kwargs):
+        # Check if username already exists
+        username = request.data.get('username')
+        if User.objects.filter(username=username).exists():
+            return Response(
+                {'error': 'Username already exists'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Create user first
         user_data = {
-            'username': request.data.get('username'),
+            'username': username,
             'email': request.data.get('email', ''),
             'first_name': request.data.get('first_name', ''),
             'last_name': request.data.get('last_name', ''),

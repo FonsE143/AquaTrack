@@ -4,7 +4,7 @@ import { Sidebar } from '../../components/Sidebar'
 import { Clock, User, Package, Truck } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
 export default function AdminActivityLogs() {
   const items = [
@@ -21,8 +21,69 @@ export default function AdminActivityLogs() {
   // Fetch activity logs
   const { data: activityLogs, isLoading } = useQuery({
     queryKey: ['activity-logs'],
-    queryFn: async () => (await api.get('/activity/')).data.results || (await api.get('/activity/')).data || [],
+    queryFn: async () => {
+      const response = await api.get('/activity/')
+      // Handle pagination if present
+      const logs = response.data.results || response.data || []
+      return Array.isArray(logs) ? logs : []
+    },
   })
+
+  // Fetch additional data for enrichment
+  const { data: drivers } = useQuery({
+    queryKey: ['drivers-for-logs'],
+    queryFn: async () => {
+      const response = await api.get('/drivers/')
+      const driversData = response.data.results || response.data || []
+      return Array.isArray(driversData) ? driversData : []
+    },
+  })
+
+  const { data: vehicles } = useQuery({
+    queryKey: ['vehicles-for-logs'],
+    queryFn: async () => {
+      const response = await api.get('/vehicles/')
+      const vehiclesData = response.data.results || response.data || []
+      return Array.isArray(vehiclesData) ? vehiclesData : []
+    },
+  })
+
+  const { data: products } = useQuery({
+    queryKey: ['products-for-logs'],
+    queryFn: async () => {
+      const response = await api.get('/products/')
+      const productsData = response.data.results || response.data || []
+      return Array.isArray(productsData) ? productsData : []
+    },
+  })
+
+  // Create lookup maps for enrichment
+  const driverMap = useMemo(() => {
+    if (!drivers) return {}
+    const map = {}
+    drivers.forEach(driver => {
+      map[driver.id] = `${driver.first_name || ''} ${driver.last_name || ''}`.trim() || driver.user_username
+    })
+    return map
+  }, [drivers])
+
+  const vehicleMap = useMemo(() => {
+    if (!vehicles) return {}
+    const map = {}
+    vehicles.forEach(vehicle => {
+      map[vehicle.id] = vehicle.name
+    })
+    return map
+  }, [vehicles])
+
+  const productMap = useMemo(() => {
+    if (!products) return {}
+    const map = {}
+    products.forEach(product => {
+      map[product.id] = product.name
+    })
+    return map
+  }, [products])
 
   // Filter logs based on selected filter
   const filteredLogs = Array.isArray(activityLogs) 
@@ -61,6 +122,68 @@ export default function AdminActivityLogs() {
       return `${log.actor_first_name || ''} ${log.actor_last_name || ''}`.trim()
     }
     return log.actor_username || 'Unknown User'
+  }
+
+  // Format metadata for display
+  const formatMetadata = (meta, entityType) => {
+    if (!meta || Object.keys(meta).length === 0) return null
+
+    const formattedItems = []
+
+    // Handle different entity types
+    if (entityType === 'deployment') {
+      if (meta.deployment_id) {
+        formattedItems.push(`Deployment: #${meta.deployment_id}`)
+      }
+      if (meta.driver_id && driverMap[meta.driver_id]) {
+        formattedItems.push(`Driver: ${driverMap[meta.driver_id]}`)
+      }
+      if (meta.vehicle_id && vehicleMap[meta.vehicle_id]) {
+        formattedItems.push(`Vehicle: ${vehicleMap[meta.vehicle_id]}`)
+      }
+      if (meta.product_id && productMap[meta.product_id]) {
+        formattedItems.push(`Product: ${productMap[meta.product_id]}`)
+      }
+      if (meta.stock !== undefined) {
+        formattedItems.push(`Stock: ${meta.stock}`)
+      }
+    } else if (entityType === 'order') {
+      if (meta.order_id) {
+        formattedItems.push(`Order: #${meta.order_id}`)
+      }
+      if (meta.product) {
+        formattedItems.push(`Product: ${meta.product}`)
+      }
+      if (meta.quantity) {
+        formattedItems.push(`Quantity: ${meta.quantity}`)
+      }
+      if (meta.customer) {
+        formattedItems.push(`Customer: ${meta.customer}`)
+      }
+    } else if (entityType === 'delivery') {
+      if (meta.delivery_id) {
+        formattedItems.push(`Delivery: #${meta.delivery_id}`)
+      }
+      if (meta.order_id) {
+        formattedItems.push(`Order: #${meta.order_id}`)
+      }
+      if (meta.status) {
+        formattedItems.push(`Status: ${meta.status}`)
+      }
+      if (meta.driver) {
+        formattedItems.push(`Driver: ${meta.driver}`)
+      }
+    } else {
+      // Generic handling for other metadata
+      Object.entries(meta).forEach(([key, value]) => {
+        // Skip ID fields that we've already handled
+        if (!key.endsWith('_id') || !driverMap[value] || !vehicleMap[value] || !productMap[value]) {
+          formattedItems.push(`${key.replace(/_/g, ' ')}: ${value}`)
+        }
+      })
+    }
+
+    return formattedItems
   }
 
   return (
@@ -121,37 +244,40 @@ export default function AdminActivityLogs() {
                   </div>
                 ) : staffLogs.length > 0 ? (
                   <div className="list-group list-group-flush">
-                    {staffLogs.map(log => (
-                      <div key={log.id} className="list-group-item border-0 px-3 py-2">
-                        <div className="d-flex align-items-start gap-2">
-                          <div className="mt-1 text-success">
-                            {getIcon(log.action)}
-                          </div>
-                          <div className="flex-grow-1">
-                            <div className="d-flex justify-content-between">
-                              <div className="fw-medium">
-                                {getActorName(log)}
+                    {staffLogs.map(log => {
+                      const formattedMeta = formatMetadata(log.meta, log.entity)
+                      return (
+                        <div key={log.id} className="list-group-item border-0 px-3 py-2">
+                          <div className="d-flex align-items-start gap-2">
+                            <div className="mt-1 text-success">
+                              {getIcon(log.action)}
+                            </div>
+                            <div className="flex-grow-1">
+                              <div className="d-flex justify-content-between">
+                                <div className="fw-medium">
+                                  {getActorName(log)}
+                                </div>
+                                <div className="small text-muted">
+                                  {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </div>
                               </div>
                               <div className="small text-muted">
-                                {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {log.action.replace(/_/g, ' ')} - {log.entity}
                               </div>
+                              {formattedMeta && formattedMeta.length > 0 && (
+                                <div className="small mt-1">
+                                  {formattedMeta.map((item, index) => (
+                                    <span key={index} className="badge bg-light text-dark me-1">
+                                      {item}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <div className="small text-muted">
-                              {log.action} - {log.entity}
-                            </div>
-                            {log.meta && Object.keys(log.meta).length > 0 && (
-                              <div className="small mt-1">
-                                {Object.entries(log.meta).map(([key, value]) => (
-                                  <span key={key} className="badge bg-light text-dark me-1">
-                                    {key}: {value}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-5">
@@ -189,37 +315,40 @@ export default function AdminActivityLogs() {
                   </div>
                 ) : driverLogs.length > 0 ? (
                   <div className="list-group list-group-flush">
-                    {driverLogs.map(log => (
-                      <div key={log.id} className="list-group-item border-0 px-3 py-2">
-                        <div className="d-flex align-items-start gap-2">
-                          <div className="mt-1 text-info">
-                            {getIcon(log.action)}
-                          </div>
-                          <div className="flex-grow-1">
-                            <div className="d-flex justify-content-between">
-                              <div className="fw-medium">
-                                {getActorName(log)}
+                    {driverLogs.map(log => {
+                      const formattedMeta = formatMetadata(log.meta, log.entity)
+                      return (
+                        <div key={log.id} className="list-group-item border-0 px-3 py-2">
+                          <div className="d-flex align-items-start gap-2">
+                            <div className="mt-1 text-info">
+                              {getIcon(log.action)}
+                            </div>
+                            <div className="flex-grow-1">
+                              <div className="d-flex justify-content-between">
+                                <div className="fw-medium">
+                                  {getActorName(log)}
+                                </div>
+                                <div className="small text-muted">
+                                  {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </div>
                               </div>
                               <div className="small text-muted">
-                                {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {log.action.replace(/_/g, ' ')} - {log.entity}
                               </div>
+                              {formattedMeta && formattedMeta.length > 0 && (
+                                <div className="small mt-1">
+                                  {formattedMeta.map((item, index) => (
+                                    <span key={index} className="badge bg-light text-dark me-1">
+                                      {item}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <div className="small text-muted">
-                              {log.action} - {log.entity}
-                            </div>
-                            {log.meta && Object.keys(log.meta).length > 0 && (
-                              <div className="small mt-1">
-                                {Object.entries(log.meta).map(([key, value]) => (
-                                  <span key={key} className="badge bg-light text-dark me-1">
-                                    {key}: {value}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-5">

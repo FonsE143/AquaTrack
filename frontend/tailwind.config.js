@@ -32,7 +32,7 @@ export default function Landing() {
       <header className="container mx-auto px-6 py-4 flex justify-between items-center z-10 relative">
         <Link to="/" className="flex items-center gap-2">
           <Droplet className="h-7 w-7 text-primary" />
-          <span className="text-xl font-bold tracking-tight">AquaTrack</span>
+          <span className="text-xl font-bold tracking-tight">AquaFlow</span>
         </Link>
         <Link to="/login" className="bg-primary text-white px-4 py-2 rounded-md hover:bg-sky-500 transition">
           Login
@@ -51,7 +51,7 @@ export default function Landing() {
               Streamline Your Water Delivery Business
             </h1>
             <p className="mt-6 text-lg text-foreground/80 leading-relaxed">
-              AquaTrack is the all-in-one solution to manage orders, track inventory, and empower your customers.
+              AquaFlow is the all-in-one solution to manage orders, track inventory, and empower your customers.
             </p>
             <div className="mt-10">
               <Link
@@ -73,7 +73,7 @@ export default function Landing() {
               Everything You Need to Succeed
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
-              AquaTrack provides powerful features to simplify your operations and boost efficiency.
+              AquaFlow provides powerful features to simplify your operations and boost efficiency.
             </p>
           </div>
           <div className="mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -96,7 +96,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="bg-muted py-8 mt-auto">
         <div className="container mx-auto px-6 sm:px-8 lg:px-12 text-center text-muted-foreground text-sm">
-          &copy; {new Date().getFullYear()} AquaTrack. All rights reserved.
+          &copy; {new Date().getFullYear()} AquaFlow. All rights reserved.
         </div>
       </footer>
     </div>

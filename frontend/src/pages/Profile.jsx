@@ -44,8 +44,8 @@ const Profile = () => {
       case 'staff':
         return [
           { label: 'Dashboard', href: '/staff/dashboard' },
-          { label: 'Orders', href: '/staff/deployment' },
-          { label: 'Deliveries', href: '/staff/activity-logs' },
+          { label: 'Deployment', href: '/staff/deployment' },
+          { label: 'Activity Logs', href: '/staff/activity-logs' },
         ]
       case 'driver':
         return [

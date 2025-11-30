@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import get_user_model
-from core.models import Profile
+from core.models import Profile, Municipality, Barangay, Address
 from core.api.serializers import ProfileSerializer
 
 User = get_user_model()
@@ -16,7 +16,11 @@ class RegisterView(APIView):
         email = request.data.get('email')
         password = request.data.get('password')
         phone = request.data.get('phone', '')
-        address = request.data.get('address', '')
+        
+        # Address fields
+        municipality_id = request.data.get('municipality')
+        barangay_id = request.data.get('barangay')
+        address_details = request.data.get('address_details', '')
         
         if not username or not email or not password:
             return Response(
@@ -36,22 +40,67 @@ class RegisterView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        user = User.objects.create_user(
-            username=username,
-            email=email,
-            password=password
-        )
+        try:
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password
+            )
+        except Exception as e:
+            return Response(
+                {'error': 'Failed to create user account'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
-        # Profile is created automatically by signal, but update it if needed
-        if hasattr(user, 'profile'):
-            user.profile.phone = phone
-            user.profile.address = address
-            user.profile.save()
+        # Get or create profile (should be created by signal, but let's ensure it exists)
+        try:
+            profile = Profile.objects.get(user=user)
+        except Profile.DoesNotExist:
+            # If profile wasn't created by signal, create it manually
+            profile = Profile.objects.create(
+                user=user,
+                role='customer',
+                first_name=user.first_name,
+                last_name=user.last_name,
+                phone=phone
+            )
         
-        return Response(
-            {'message': 'User registered successfully', 'user': ProfileSerializer(user.profile).data},
-            status=status.HTTP_201_CREATED
-        )
+        # Update profile with phone number
+        profile.phone = phone
+        
+        # Handle address creation if all required fields are provided
+        if municipality_id and barangay_id and address_details:
+            try:
+                municipality = Municipality.objects.get(id=municipality_id)
+                barangay = Barangay.objects.get(id=barangay_id, municipality=municipality)
+                address = Address.objects.create(
+                    barangay=barangay,
+                    full_address=address_details.strip()
+                )
+                profile.address = address
+            except (Municipality.DoesNotExist, Barangay.DoesNotExist):
+                pass  # Silently ignore address errors for now
+        
+        try:
+            profile.save()
+        except Exception as e:
+            return Response(
+                {'error': 'Failed to update profile'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        # Serialize the profile data
+        try:
+            serializer = ProfileSerializer(profile)
+            return Response(
+                {'message': 'User registered successfully', 'user': serializer.data},
+                status=status.HTTP_201_CREATED
+            )
+        except Exception as e:
+            return Response(
+                {'message': 'User registered successfully'},
+                status=status.HTTP_201_CREATED
+            )
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]

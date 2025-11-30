@@ -33,7 +33,7 @@ export default function Landing() {
       <header className="container-fluid py-3 px-4 d-flex justify-content-between align-items-center" style={{ margin: 0, paddingLeft: '1rem', paddingRight: '1rem' }}>
         <Link to="/" className="d-flex align-items-center gap-2 text-decoration-none">
           <Droplet className="h-7 w-7 text-success" />
-          <span className="fs-4 fw-bold text-success">AquaTrack</span>
+          <span className="fs-4 fw-bold text-success">AquaFlow</span>
         </Link>
         <Link to="/login" className="btn btn-success px-4 py-2">
           Login
@@ -101,7 +101,7 @@ export default function Landing() {
               Streamline Your Water Delivery Business
             </h1>
             <p className="lead text-muted mt-3">
-              AquaTrack is the all-in-one solution to manage orders, track inventory, and empower your customers.
+              AquaFlow is the all-in-one solution to manage orders, track inventory, and empower your customers.
             </p>
             <Link to="/login" className="btn btn-success btn-lg mt-4">
               Get Started
@@ -115,7 +115,7 @@ export default function Landing() {
         <div className="container text-center">
           <h2 className="fw-bold fs-2 text-foreground">Everything You Need to Succeed</h2>
           <p className="text-muted fs-5 mt-2">
-            AquaTrack provides powerful features to simplify your operations and boost efficiency.
+            AquaFlow provides powerful features to simplify your operations and boost efficiency.
           </p>
           <div className="row mt-5 g-4">
             {features.map((feature, index) => (
@@ -141,7 +141,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="bg-light py-4 mt-auto w-100">
          <div className="w-100 text-center text-muted small">
-          &copy; {new Date().getFullYear()} AquaTrack. All rights reserved.
+          &copy; {new Date().getFullYear()} AquaFlow. All rights reserved.
         </div>
       </footer>
     </div>

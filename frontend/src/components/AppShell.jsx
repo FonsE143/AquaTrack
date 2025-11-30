@@ -46,7 +46,7 @@ export default function AppShell({ role='admin', children, sidebar }) {
             <Menu size={18} />
           </button>
           <Droplet size={20} className="text-success me-2" />
-          <span className="fw-bold">AquaTrack</span>
+          <span className="fw-bold">AquaFlow</span>
         </div>
 
         <div className="position-relative" ref={accountMenuRef}>

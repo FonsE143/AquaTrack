@@ -4,7 +4,7 @@ import { Sidebar } from '../../components/Sidebar'
 import { User, Truck, Plus, Edit, Trash2 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createStyledAlert } from '../../utils/alertHelper'
 
 export default function AdminEmployees() {
@@ -29,7 +29,74 @@ export default function AdminEmployees() {
     message: '',
     onConfirm: null
   })
+  
+  // Address state
+  const [municipalities, setMunicipalities] = useState([])
+  const [barangays, setBarangays] = useState([])
+  const [addressForm, setAddressForm] = useState({
+    municipality: '',
+    barangay: '',
+    address_details: ''
+  })
+  
   const itemsPerPage = 5
+
+  // Fetch municipalities
+  useEffect(() => {
+    const fetchMunicipalities = async () => {
+      try {
+        const response = await api.get('/municipalities/')
+        const data = Array.isArray(response.data) ? response.data : 
+                    (response.data.results && Array.isArray(response.data.results) ? response.data.results : [])
+        setMunicipalities(data)
+      } catch (err) {
+        console.error('Failed to fetch municipalities:', err)
+        setMunicipalities([])
+      }
+    }
+    
+    fetchMunicipalities()
+  }, [])
+
+  // Fetch barangays when municipality changes
+  useEffect(() => {
+    if (addressForm.municipality) {
+      const fetchBarangays = async () => {
+        try {
+          const response = await api.get(`/barangays/?municipality=${addressForm.municipality}`)
+          const data = Array.isArray(response.data) ? response.data : 
+                      (response.data.results && Array.isArray(response.data.results) ? response.data.results : [])
+          setBarangays(data)
+        } catch (err) {
+          console.error('Failed to fetch barangays:', err)
+          setBarangays([])
+        }
+      }
+      
+      fetchBarangays()
+    } else {
+      setBarangays([])
+    }
+  }, [addressForm.municipality])
+
+  // Reset address form when modal opens/closes or item changes
+  useEffect(() => {
+    if (showModal && currentItem && currentItem.address_detail) {
+      // Pre-fill address form for editing
+      setAddressForm({
+        municipality: currentItem.address_detail.municipality || '',
+        barangay: currentItem.address_detail.barangay || '',
+        address_details: currentItem.address_detail.full_address || ''
+      })
+    } else if (showModal && modalType === 'create') {
+      // Clear form for new creation
+      setAddressForm({
+        municipality: '',
+        barangay: '',
+        address_details: ''
+      })
+    }
+  }, [showModal, currentItem, modalType])
 
   // Fetch employees data
   const { data: staff } = useQuery({
@@ -126,7 +193,13 @@ export default function AdminEmployees() {
       createStyledAlert('success', 'Success!', 'User created successfully!')
     },
     onError: (error) => {
-      createStyledAlert('error', 'Error!', `Failed to create user: ${error.response?.data?.detail || error.message}`, 5000)
+      // Check if it's a username already exists error
+      const errorMessage = error.response?.data?.error || error.response?.data?.detail || error.message;
+      if (errorMessage && errorMessage.includes('Username already exists')) {
+        createStyledAlert('error', 'Username Taken', 'This username is already taken. Please choose a different username.', 5000);
+      } else {
+        createStyledAlert('error', 'Error!', `Failed to create user: ${errorMessage}`, 5000);
+      }
     }
   })
 
@@ -245,6 +318,13 @@ export default function AdminEmployees() {
         role: activeTab === 'staff' ? 'staff' : 'driver'
       }
       
+      // Add address data if all fields are filled
+      if (addressForm.municipality && addressForm.barangay && addressForm.address_details) {
+        userData.municipality = addressForm.municipality
+        userData.barangay = addressForm.barangay
+        userData.address_details = addressForm.address_details
+      }
+      
       // For new users, don't send password as backend sets default passwords
       if (modalType === 'create') {
         createUserMutation.mutate(userData)
@@ -357,6 +437,58 @@ export default function AdminEmployees() {
               name="phone" 
               defaultValue={currentItem?.phone || ''}
             />
+          </div>
+          
+          {/* Address Section */}
+          <div className="mb-3">
+            <h6 className="fw-semibold mb-3">Address</h6>
+            
+            {/* Municipality */}
+            <div className="mb-3">
+              <label className="form-label">Municipality</label>
+              <select
+                className="form-select"
+                value={addressForm.municipality}
+                onChange={(e) => setAddressForm({...addressForm, municipality: e.target.value, barangay: ''})}
+              >
+                <option value="">Select Municipality</option>
+                {municipalities.map(municipality => (
+                  <option key={municipality.id} value={municipality.id}>
+                    {municipality.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Barangay */}
+            <div className="mb-3">
+              <label className="form-label">Barangay</label>
+              <select
+                className="form-select"
+                value={addressForm.barangay}
+                onChange={(e) => setAddressForm({...addressForm, barangay: e.target.value})}
+                disabled={!addressForm.municipality}
+              >
+                <option value="">Select Barangay</option>
+                {barangays.map(barangay => (
+                  <option key={barangay.id} value={barangay.id}>
+                    {barangay.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Address Details */}
+            <div className="mb-3">
+              <label className="form-label">House Number / Lot Number / Street</label>
+              <textarea
+                className="form-control"
+                placeholder="Enter complete address"
+                value={addressForm.address_details}
+                onChange={(e) => setAddressForm({...addressForm, address_details: e.target.value})}
+                rows="2"
+              />
+            </div>
           </div>
         </>
       )
