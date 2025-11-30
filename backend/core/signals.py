@@ -1,6 +1,6 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from core.models import User, Profile
+from core.models import User, Profile, Order, Delivery
 
 def sync_profile(sender, instance, created, **kwargs):
     profile, profile_created = Profile.objects.get_or_create(
@@ -23,3 +23,19 @@ def sync_profile(sender, instance, created, **kwargs):
             updated = True
     if updated and not profile_created:
         profile.save()
+
+@receiver(post_save, sender=Order)
+def create_delivery_for_order(sender, instance, created, **kwargs):
+    """Automatically create a delivery when an order is created"""
+    if created:
+        # Only create delivery for new orders
+        # Get the first available driver
+        driver = Profile.objects.filter(role='driver').first()
+        
+        Delivery.objects.get_or_create(
+            order=instance,
+            defaults={
+                'status': 'assigned' if driver else 'pending',
+                'driver': driver
+            }
+        )

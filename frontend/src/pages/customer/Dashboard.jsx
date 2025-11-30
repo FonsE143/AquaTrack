@@ -1,17 +1,20 @@
 // src/pages/customer/Dashboard.jsx
 import AppShell from '../../components/AppShell'
 import { Sidebar } from '../../components/Sidebar'
-import { Truck, Package, Plus, AlertTriangle } from 'lucide-react'
+import { Truck, Package, Plus, AlertTriangle, Clock, CheckCircle, XCircle, Gift, ChevronDown, ChevronUp } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useState, useMemo, useEffect } from 'react'
+import { createStyledAlert } from '../../utils/alertHelper'
 
 export default function CustomerDashboard() {
   const items = [
     { label: 'Dashboard', href: '/customer/dashboard', active: true },
+    { label: 'Order History', href: '/customer/orders' },
   ]
 
   const [showOrderModal, setShowOrderModal] = useState(false)
+  const [showPromotionDetails, setShowPromotionDetails] = useState(false)
   const [orderForm, setOrderForm] = useState({
     product: '',
     quantity: 1
@@ -70,6 +73,11 @@ export default function CustomerDashboard() {
     return uniqueDrivers;
   }, [barangayDeployments]);
 
+  // Calculate free items based on quantity (buy 10 get 1 free)
+  const calculateFreeItems = (quantity) => {
+    return Math.floor(quantity / 10);
+  };
+
   // Get maximum quantity for a product based on available stock
   const getMaxQuantity = (productId) => {
     if (!productId || !barangayDeployments?.deployments) return 0;
@@ -87,6 +95,7 @@ export default function CustomerDashboard() {
       }
     }
   }, [orderForm.product, barangayDeployments]);
+  
   const handleCreateOrder = async (e) => {
     e.preventDefault()
     try {
@@ -102,6 +111,13 @@ export default function CustomerDashboard() {
       createStyledAlert('error', 'Order Failed', 'Failed to create order: ' + (error.response?.data?.detail || error.message))
     }
   }
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <AppShell role="customer" sidebar={<Sidebar items={items} />}>
@@ -214,14 +230,14 @@ export default function CustomerDashboard() {
           </div>
         </div>
 
-        {/* Order History */}
+        {/* Order Status */}
         <div className="row g-4 mt-2">
           <div className="col-12">
             <div className="card border-0 shadow-sm">
               <div className="card-header bg-white border-0 py-3">
                 <div className="d-flex align-items-center gap-2">
                   <Package className="text-info" size={20} />
-                  <h5 className="mb-0">Order History</h5>
+                  <h5 className="mb-0">Order Status</h5>
                 </div>
               </div>
               <div className="card-body p-0">
@@ -232,29 +248,47 @@ export default function CustomerDashboard() {
                         <th>Order ID</th>
                         <th>Product</th>
                         <th>Quantity</th>
-                        <th>Date</th>
                         <th>Status</th>
+                        <th>Last Updated</th>
                       </tr>
                     </thead>
                     <tbody>
                       {Array.isArray(deliveries) && deliveries.length > 0 ? (
-                        deliveries.slice(0, 5).map((delivery, index) => (
+                        deliveries.map((delivery, index) => (
                           <tr key={index}>
-                            <td>{delivery.order_id || 'N/A'}</td>
+                            <td>#{delivery.order_id || 'N/A'}</td>
                             <td>{delivery.order_product_name || 'N/A'}</td>
-                            <td>{delivery.order_quantity || 0}</td>
-                            <td>{delivery.created_at ? new Date(delivery.created_at).toLocaleDateString() : 'N/A'}</td>
                             <td>
-                              <span className="badge bg-warning">
-                                {delivery.status ? delivery.status.replace('_', ' ') : 'N/A'}
+                              {delivery.order_quantity || 0}
+                              {delivery.order_free_items > 0 && (
+                                <span className="text-success ms-1">
+                                  <Gift size={12} /> +{delivery.order_free_items}
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <span className={`badge ${
+                                delivery.status === 'delivered' ? 'bg-success' : 
+                                delivery.status === 'in_route' ? 'bg-primary' : 
+                                delivery.status === 'assigned' ? 'bg-warning' : 
+                                delivery.status === 'cancelled' ? 'bg-danger' : 'bg-secondary'
+                              }`}>
+                                <div className="d-flex align-items-center gap-1">
+                                  {delivery.status === 'delivered' && <CheckCircle size={12} />}
+                                  {delivery.status === 'in_route' && <Truck size={12} />}
+                                  {delivery.status === 'assigned' && <Clock size={12} />}
+                                  {delivery.status === 'cancelled' && <XCircle size={12} />}
+                                  {delivery.status ? delivery.status.replace('_', ' ').charAt(0).toUpperCase() + delivery.status.replace('_', ' ').slice(1) : 'N/A'}
+                                </div>
                               </span>
                             </td>
+                            <td>{formatDate(delivery.updated_at)}</td>
                           </tr>
                         ))
                       ) : (
                         <tr>
                           <td colSpan="5" className="text-center align-middle" style={{ height: '200px' }}>
-                            No order history
+                            No orders found
                           </td>
                         </tr>
                       )}
@@ -296,7 +330,15 @@ export default function CustomerDashboard() {
                       </select>
                     </div>
                     <div className="mb-3">
-                      <label className="form-label">Quantity (Max: {getMaxQuantity(orderForm.product)})</label>
+                      <label className="form-label">
+                        Quantity (Max: {getMaxQuantity(orderForm.product)})
+                        {orderForm.quantity >= 10 && (
+                          <span className="text-success ms-2">
+                            <Gift size={16} className="d-inline" /> 
+                            Buy {orderForm.quantity} get {calculateFreeItems(orderForm.quantity)} free!
+                          </span>
+                        )}
+                      </label>
                       <input 
                         type="number" 
                         className="form-control" 
@@ -306,6 +348,46 @@ export default function CustomerDashboard() {
                         onChange={(e) => setOrderForm({...orderForm, quantity: Math.min(e.target.value, getMaxQuantity(orderForm.product))})}
                         required
                       />
+                      {orderForm.quantity >= 10 && (
+                        <div className="alert alert-success mt-2 mb-0 py-2">
+                          <div className="d-flex align-items-center gap-2">
+                            <Gift size={16} />
+                            <div>
+                              <strong>Promotion:</strong> You'll receive <strong>{orderForm.quantity + calculateFreeItems(orderForm.quantity)}</strong> units 
+                              ({orderForm.quantity} ordered + {calculateFreeItems(orderForm.quantity)} free)!
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Promotion Details Toggle */}
+                    <div className="mt-3">
+                      <button 
+                        type="button" 
+                        className="btn btn-outline-success w-100 d-flex justify-content-between align-items-center"
+                        onClick={() => setShowPromotionDetails(!showPromotionDetails)}
+                      >
+                        <span>Promotion Details</span>
+                        {showPromotionDetails ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </button>
+                      
+                      {showPromotionDetails && (
+                        <div className="alert alert-success mt-2 mb-0">
+                          <div className="d-flex align-items-start gap-2">
+                            <Gift size={16} className="mt-1 flex-shrink-0" />
+                            <div>
+                              <strong>Promotion Details:</strong>
+                              <ul className="mb-0 mt-1 small">
+                                <li>For every 10 units ordered, you get 1 additional unit free</li>
+                                <li>You pay for the units you order, free units are a bonus</li>
+                                <li>Free units are subject to availability during delivery</li>
+                                <li>Optimize your order: Order in multiples of 10 for maximum value!</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="modal-footer">

@@ -569,30 +569,53 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         return queryset
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'destroy']:
             return [IsAuthenticated(), IsRole('admin')]
+        elif self.action in ['update', 'partial_update']:
+            # Allow drivers to update their own deliveries, and admin for all deliveries
+            return [IsAuthenticated()]
+        elif self.action in ['assign_vehicle_route']:
+            return [IsAuthenticated(), IsRole('admin', 'staff')]
         return [IsAuthenticated()]
     
     @action(detail=False, methods=['get'], url_path='my-deliveries')
     def my_deliveries(self, request):
-        """Get deliveries for the current customer"""
+        """Get deliveries for the current user (customer or driver)"""
         if not hasattr(request.user, 'profile'):
             return Response({'error': 'User profile not found'}, status=404)
         
-        # Only customers can access their own deliveries
-        if request.user.profile.role != 'customer':
-            return Response({'error': 'Only customers can access their deliveries'}, status=403)
-        
         try:
-            # Get deliveries for orders placed by this customer
-            deliveries = Delivery.objects.select_related(
-                'order', 'order__product', 'driver', 'vehicle', 'route'
-            ).filter(
-                order__customer=request.user.profile
-            ).order_by('-created_at')
+            # Handle customer requests
+            if request.user.profile.role == 'customer':
+                # Get deliveries for orders placed by this customer
+                deliveries = Delivery.objects.select_related(
+                    'order', 'order__product', 'driver', 'vehicle', 'route'
+                ).filter(
+                    order__customer=request.user.profile
+                ).order_by('-created_at')
+                
+                serializer = self.get_serializer(deliveries, many=True)
+                return Response(serializer.data)
             
-            serializer = self.get_serializer(deliveries, many=True)
-            return Response(serializer.data)
+            # Handle driver requests
+            elif request.user.profile.role == 'driver':
+                # Get deliveries assigned to this driver
+                deliveries = Delivery.objects.select_related(
+                    'order', 'order__product', 'order__customer', 'order__customer__user', 'vehicle', 'route'
+                ).filter(
+                    driver=request.user.profile
+                ).exclude(
+                    Q(status='delivered')
+                ).exclude(
+                    Q(status='cancelled')
+                ).order_by('-created_at')
+                
+                serializer = self.get_serializer(deliveries, many=True)
+                return Response(serializer.data)
+            
+            else:
+                return Response({'error': 'Only customers and drivers can access their deliveries'}, status=403)
+                
         except Exception as e:
             return Response({'error': str(e)}, status=500)
     
@@ -633,6 +656,85 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(delivery)
         return Response(serializer.data)
 
+    def update(self, request, *args, **kwargs):
+        # Get the delivery object
+        delivery = self.get_object()
+        
+        # Check permissions
+        if not hasattr(request.user, 'profile'):
+            raise PermissionDenied('User profile not found')
+            
+        user_profile = request.user.profile
+        
+        # Drivers can only update their own deliveries
+        if user_profile.role == 'driver' and delivery.driver != user_profile:
+            raise PermissionDenied('You can only update your own deliveries')
+        
+        # Admin can update all deliveries
+        if user_profile.role != 'admin' and user_profile.role != 'driver':
+            raise PermissionDenied('You do not have permission to perform this action')
+        
+        # Call the parent update method
+        return super().update(request, *args, **kwargs)
+    
+    def partial_update(self, request, *args, **kwargs):
+        try:
+            # Get the delivery object
+            delivery = self.get_object()
+            
+            # Check permissions
+            if not hasattr(request.user, 'profile'):
+                raise PermissionDenied('User profile not found')
+                
+            user_profile = request.user.profile
+            
+            # Drivers can only update their own deliveries
+            if user_profile.role == 'driver' and delivery.driver != user_profile:
+                raise PermissionDenied('You can only update your own deliveries')
+            
+            # Admin can update all deliveries
+            if user_profile.role != 'admin' and user_profile.role != 'driver':
+                raise PermissionDenied('You do not have permission to perform this action')
+            
+            # Debug information
+            print(f"Updating delivery {delivery.id} with data: {request.data}")
+            
+            # Process the update
+            serializer = self.get_serializer(delivery, data=request.data, partial=True)
+            if not serializer.is_valid():
+                print(f"Serializer errors: {serializer.errors}")
+                return Response(serializer.errors, status=400)
+            
+            # Check if this is a delivery completion with delivered quantity
+            if serializer.validated_data.get('status') == 'delivered' and hasattr(delivery, '_delivered_quantity'):
+                delivered_quantity = delivery._delivered_quantity
+                
+                # Update deployment stock if driver has a deployment
+                if delivery.driver:
+                    try:
+                        from core.models import Deployment
+                        deployment = Deployment.objects.filter(driver=delivery.driver, product=delivery.order.product).first()
+                        if deployment and deployment.stock >= delivered_quantity:
+                            deployment.stock -= delivered_quantity
+                            deployment.save()
+                            print(f"Reduced deployment stock by {delivered_quantity}. New stock: {deployment.stock}")
+                        elif deployment:
+                            print(f"Insufficient stock in deployment. Available: {deployment.stock}, Needed: {delivered_quantity}")
+                    except Exception as e:
+                        print(f"Error updating deployment stock: {e}")
+            
+            self.perform_update(serializer)
+            
+            return Response(serializer.data)
+        except Exception as e:
+            print(f"Error in partial_update: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
+    
+    def perform_update(self, serializer):
+        serializer.save()
+    
     @action(detail=False, methods=['post'])
     def auto_dispatch(self, request):
         if not hasattr(request.user, 'profile') or request.user.profile.role != 'admin':

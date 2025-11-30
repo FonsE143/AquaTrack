@@ -1,9 +1,10 @@
 // src/pages/driver/Dashboard.jsx
 import AppShell from '../../components/AppShell'
 import { Sidebar } from '../../components/Sidebar'
-import { Truck, AlertTriangle, Package, CheckCircle, MapPin } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { Truck, AlertTriangle, Package, CheckCircle, MapPin, Play, X } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
+import { createStyledAlert, createStyledConfirm } from '../../utils/alertHelper'
 
 export default function DriverDashboard() {
   const items = [
@@ -11,8 +12,10 @@ export default function DriverDashboard() {
     { label: 'Deliveries', href: '/driver/deliveries' },
   ]
 
+  const queryClient = useQueryClient()
+
   // Fetch data
-  const { data: deliveries } = useQuery({
+  const { data: deliveries, isLoading } = useQuery({
     queryKey: ['my-deliveries'],
     queryFn: async () => (await api.get('/deliveries/my-deliveries/')).data.results || (await api.get('/deliveries/my-deliveries/')).data || [],
   })
@@ -29,6 +32,73 @@ export default function DriverDashboard() {
       }
     },
   })
+
+  // Mutation for updating delivery status
+  const updateDeliveryStatus = useMutation({
+    mutationFn: async ({ deliveryId, status, deliveredQuantity }) => {
+      const data = { status };
+      if (deliveredQuantity !== undefined) {
+        data.delivered_quantity = deliveredQuantity;
+      }
+      return api.patch(`/deliveries/${deliveryId}/`, data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['my-deliveries'])
+      createStyledAlert('success', 'Delivery Updated', 'Delivery status updated successfully!')
+    },
+    onError: (error) => {
+      createStyledAlert('error', 'Update Failed', 'Failed to update delivery status: ' + (error.response?.data?.detail || error.message))
+    }
+  })
+
+  // Handle start delivery
+  const handleStartDelivery = (deliveryId) => {
+    createStyledConfirm(
+      'Start Delivery', 
+      'Are you sure you want to start delivery for this order?', 
+      () => updateDeliveryStatus.mutate({ deliveryId, status: 'in_route' })
+    )
+  }
+
+  // Handle complete delivery
+  const handleCompleteDelivery = (delivery) => {
+    createStyledConfirm(
+      'Complete Delivery', 
+      'Mark this delivery as completed?',
+      (deliveredQuantity) => {
+        // Validate delivered quantity
+        const qty = parseInt(deliveredQuantity);
+        if (isNaN(qty) || qty <= 0) {
+          createStyledAlert('error', 'Invalid Quantity', 'Please enter a valid quantity greater than 0');
+          return;
+        }
+        
+        // Update delivery status and quantity
+        updateDeliveryStatus.mutate({ 
+          deliveryId: delivery.id, 
+          status: 'delivered',
+          deliveredQuantity: qty
+        });
+      },
+      null,
+      {
+        inputLabel: 'Delivered Quantity',
+        inputType: 'number',
+        inputPlaceholder: 'Enter quantity delivered',
+        inputRequired: true,
+        inputValue: delivery.order_quantity
+      }
+    );
+  }
+
+  // Handle cancel delivery
+  const handleCancelDelivery = (deliveryId) => {
+    createStyledConfirm(
+      'Cancel Delivery', 
+      'Are you sure you want to cancel this delivery?', 
+      () => updateDeliveryStatus.mutate({ deliveryId, status: 'cancelled' })
+    )
+  }
 
   // Get today's deliveries
   const todaysDeliveries = Array.isArray(deliveries) 
@@ -141,59 +211,93 @@ export default function DriverDashboard() {
           </div>
         )}
 
-        {/* Recent Deliveries Table */}
+        {/* Customer Orders Table */}
         <div className="row g-4">
           <div className="col-12">
             <div className="card border-0 shadow-sm">
               <div className="card-header bg-white border-0 py-3">
                 <div className="d-flex align-items-center gap-2">
                   <Package className="text-primary" size={20} />
-                  <h5 className="mb-0">Recent Deliveries</h5>
+                  <h5 className="mb-0">Customer Orders</h5>
                 </div>
               </div>
               <div className="card-body p-0">
-                <div className="table-responsive">
-                  <table className="table table-hover mb-0">
-                    <thead className="table-light">
-                      <tr>
-                        <th>Order ID</th>
-                        <th>Customer</th>
-                        <th>Product</th>
-                        <th>Quantity</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {todaysDeliveries.length > 0 ? (
-                        todaysDeliveries.map(delivery => (
-                          <tr key={delivery.id}>
-                            <td>#{delivery.order_id}</td>
-                            <td>{delivery.customer_first_name} {delivery.customer_last_name}</td>
-                            <td>{delivery.order_product_name}</td>
-                            <td>{delivery.order_quantity}</td>
-                            <td>
-                              <span className={`badge ${
-                                delivery.status === 'delivered' ? 'bg-success-subtle text-success-emphasis' :
-                                delivery.status === 'in_route' ? 'bg-primary-subtle text-primary-emphasis' :
-                                'bg-warning-subtle text-warning-emphasis'
-                              }`}>
-                                {delivery.status}
-                              </span>
-                            </td>
-                            <td>{new Date(delivery.created_at).toLocaleTimeString()}</td>
-                          </tr>
-                        ))
-                      ) : (
+                {isLoading ? (
+                  <div className="d-flex align-items-center justify-content-center py-5">
+                    <div className="spinner-border text-success" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table table-hover mb-0">
+                      <thead className="table-light">
                         <tr>
-                          <td colSpan="6" className="text-center py-3">
-                            No deliveries today
-                          </td>
+                          <th>Order ID</th>
+                          <th>Customer</th>
+                          <th>Address</th>
+                          <th>Quantity</th>
+                          <th>Actions</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {Array.isArray(deliveries) && deliveries.length > 0 ? (
+                          deliveries.map(delivery => (
+                            <tr key={delivery.id}>
+                              <td>#{delivery.order_id}</td>
+                              <td>
+                                {delivery.customer_first_name} {delivery.customer_last_name}
+                              </td>
+                              <td>{delivery.customer_address}</td>
+                              <td>{delivery.order_quantity}</td>
+                              <td>
+                                {delivery.status === 'assigned' && (
+                                  <button 
+                                    className="btn btn-sm btn-success d-flex align-items-center gap-1"
+                                    onClick={() => handleStartDelivery(delivery.id)}
+                                    disabled={updateDeliveryStatus.isLoading}
+                                  >
+                                    <Play size={14} />
+                                    Start
+                                  </button>
+                                )}
+                                {delivery.status === 'in_route' && (
+                                  <div className="d-flex gap-2">
+                                    <button 
+                                      className="btn btn-sm btn-success d-flex align-items-center gap-1"
+                                      onClick={() => handleCompleteDelivery(delivery)}
+                                      disabled={updateDeliveryStatus.isLoading}
+                                    >
+                                      <CheckCircle size={14} />
+                                      Complete
+                                    </button>
+                                    <button 
+                                      className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
+                                      onClick={() => handleCancelDelivery(delivery.id)}
+                                      disabled={updateDeliveryStatus.isLoading}
+                                    >
+                                      <X size={14} />
+                                      Cancel
+                                    </button>
+                                  </div>
+                                )}
+                                {(delivery.status === 'delivered' || delivery.status === 'cancelled') && (
+                                  <span className="text-muted">No actions</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="5" className="text-center py-3">
+                              No deliveries found
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </div>

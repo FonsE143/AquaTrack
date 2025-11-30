@@ -378,17 +378,21 @@ class OrderSerializer(serializers.ModelSerializer):
     customer_name = serializers.CharField(source='customer.user.username', read_only=True)
     customer_first_name = serializers.CharField(source='customer.first_name', read_only=True, allow_null=True)
     customer_last_name = serializers.CharField(source='customer.last_name', read_only=True, allow_null=True)
+    total_quantity = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Order
         fields = [
             'id','product','product_name','customer','customer_name','customer_first_name','customer_last_name',
-            'created_at','quantity'
+            'created_at','quantity','free_items','total_quantity'
         ]
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'free_items', 'total_quantity']
         extra_kwargs = {
             'customer': {'required': False}
         }
+    
+    def get_total_quantity(self, obj):
+        return obj.quantity + obj.free_items
 
     def create(self, validated_data):
         customer = validated_data.get('customer')
@@ -410,6 +414,8 @@ class DeliverySerializer(serializers.ModelSerializer):
     order_id = serializers.IntegerField(source='order.id', read_only=True)
     order_product_name = serializers.CharField(source='order.product.name', read_only=True)
     order_quantity = serializers.IntegerField(source='order.quantity', read_only=True)
+    order_free_items = serializers.IntegerField(source='order.free_items', read_only=True)
+    order_total_quantity = serializers.SerializerMethodField(read_only=True)
     driver_username = serializers.CharField(source='driver.user.username', read_only=True, allow_null=True)
     driver_first_name = serializers.CharField(source='driver.first_name', read_only=True, allow_null=True)
     driver_last_name = serializers.CharField(source='driver.last_name', read_only=True, allow_null=True)
@@ -419,13 +425,40 @@ class DeliverySerializer(serializers.ModelSerializer):
     # Add customer details to the delivery serializer
     customer_first_name = serializers.CharField(source='order.customer.first_name', read_only=True, allow_null=True)
     customer_last_name = serializers.CharField(source='order.customer.last_name', read_only=True, allow_null=True)
-    customer_address = serializers.CharField(source='order.customer.address', read_only=True, allow_null=True)
+    customer_address = serializers.SerializerMethodField(read_only=True)
     customer_phone = serializers.CharField(source='order.customer.phone', read_only=True, allow_null=True)
+    # Add delivered quantity field for updates
+    delivered_quantity = serializers.IntegerField(write_only=True, required=False)
+    
+    def get_order_total_quantity(self, obj):
+        return obj.order.quantity + obj.order.free_items
+    
+    def get_customer_address(self, obj):
+        if obj.order and obj.order.customer and obj.order.customer.address:
+            address = obj.order.customer.address
+            full_address = address.full_address
+            barangay = address.barangay.name if address.barangay else ''
+            municipality = address.barangay.municipality.name if address.barangay and address.barangay.municipality else ''
+            
+            # Build complete address string
+            parts = [full_address, barangay, municipality]
+            return ', '.join([part for part in parts if part])
+        return None
+    
+    def update(self, instance, validated_data):
+        # Handle delivered quantity update
+        delivered_quantity = validated_data.pop('delivered_quantity', None)
+        if delivered_quantity is not None:
+            # Store the delivered quantity in the instance (we'll use it in the view)
+            instance._delivered_quantity = delivered_quantity
+        
+        # Update other fields
+        return super().update(instance, validated_data)
     
     class Meta:
         model = Delivery
         fields = [
-            'id','order','order_id','order_product_name','order_quantity','driver','driver_username','driver_first_name','driver_last_name','driver_phone','vehicle','vehicle_name','route','route_number','status'
+            'id','order','order_id','order_product_name','order_quantity','order_free_items','order_total_quantity','driver','driver_username','driver_first_name','driver_last_name','driver_phone','vehicle','vehicle_name','route','route_number','status','customer_first_name','customer_last_name','customer_address','customer_phone','delivered_quantity'
         ]
         read_only_fields = []
     

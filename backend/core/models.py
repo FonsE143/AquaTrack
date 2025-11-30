@@ -61,7 +61,13 @@ class Order(models.Model):
     product = models.ForeignKey(Product, on_delete=models.PROTECT, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     quantity = models.PositiveIntegerField(default=1)
+    free_items = models.PositiveIntegerField(default=0)
     customer = models.ForeignKey(Profile, on_delete=models.PROTECT, limit_choices_to={'role':'customer'}, null=True, blank=True)
+    
+    def save(self, *args, **kwargs):
+        # Calculate free items (buy 10 get 1 free)
+        self.free_items = self.quantity // 10
+        super().save(*args, **kwargs)
 
     @property
     def customer_name(self):

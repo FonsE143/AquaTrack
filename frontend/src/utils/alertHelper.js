@@ -130,6 +130,105 @@ export const createStyledAlert = (type, title, message, duration = 5000) => {
   return alert;
 };
 
+// Custom confirm dialog with optional input field
+export const createStyledConfirm = (title, message, onConfirm, onCancel, options = {}) => {
+  // Remove any existing confirm dialogs
+  const existingConfirms = document.querySelectorAll('.custom-confirm');
+  existingConfirms.forEach(confirm => confirm.remove());
+
+  const confirmDialog = document.createElement('div');
+  
+  // Enhanced base classes with better styling
+  confirmDialog.className = 'custom-confirm modal fade show position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center';
+  confirmDialog.style.zIndex = '10000';
+  confirmDialog.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+  confirmDialog.style.display = 'block';
+  
+  // Check if we need an input field
+  const hasInput = options.inputLabel && options.inputType;
+  const inputHtml = hasInput ? `
+    <div class="mb-3">
+      <label class="form-label">${options.inputLabel}</label>
+      <input type="${options.inputType || 'text'}" class="form-control" id="confirm-input" placeholder="${options.inputPlaceholder || ''}" 
+             ${options.inputRequired ? 'required' : ''} value="${options.inputValue || ''}">
+      ${options.inputHelpText ? `<div class="form-text">${options.inputHelpText}</div>` : ''}
+    </div>
+  ` : '';
+
+  confirmDialog.innerHTML = `
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg" style="border-radius: 0.75rem;">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title fw-bold">${title}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body pt-0">
+          <p class="mb-0">${message}</p>
+          ${inputHtml}
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary">Confirm</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(confirmDialog);
+  
+  // Add event listeners
+  const closeBtn = confirmDialog.querySelector('.btn-close');
+  const cancelBtn = confirmDialog.querySelector('.btn-outline-secondary');
+  const confirmBtn = confirmDialog.querySelector('.btn-primary');
+  const inputField = confirmDialog.querySelector('#confirm-input');
+  
+  const closeDialog = () => {
+    confirmDialog.style.opacity = '0';
+    setTimeout(() => {
+      if (confirmDialog && confirmDialog.parentNode) {
+        confirmDialog.remove();
+      }
+      if (onCancel) onCancel();
+    }, 300);
+  };
+  
+  const confirmAction = () => {
+    let inputValue = null;
+    if (inputField) {
+      inputValue = inputField.value;
+      // Validate if required
+      if (options.inputRequired && !inputValue.trim()) {
+        inputField.classList.add('is-invalid');
+        return;
+      }
+    }
+    
+    confirmDialog.style.opacity = '0';
+    setTimeout(() => {
+      if (confirmDialog && confirmDialog.parentNode) {
+        confirmDialog.remove();
+      }
+      if (onConfirm) onConfirm(inputValue);
+    }, 300);
+  };
+  
+  if (closeBtn) closeBtn.addEventListener('click', closeDialog);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeDialog);
+  if (confirmBtn) confirmBtn.addEventListener('click', confirmAction);
+  
+  // Focus input field if it exists
+  if (inputField) {
+    inputField.focus();
+    inputField.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        confirmAction();
+      }
+    });
+  }
+  
+  return confirmDialog;
+};
+
 // Utility function to auto-dismiss alerts with animation
 export const dismissAlert = (alert, delay = 3000) => {
   setTimeout(() => {

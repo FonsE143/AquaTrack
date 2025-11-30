@@ -1,10 +1,10 @@
 // src/pages/driver/Deliveries.jsx
 import AppShell from '../../components/AppShell'
 import { Sidebar } from '../../components/Sidebar'
-import { Package, MapPin, Play, CheckCircle, X, Truck } from 'lucide-react'
+import { Package, MapPin, Play, CheckCircle, X, Truck, Calendar } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import { createStyledAlert } from '../../utils/alertHelper'
+import { createStyledAlert, createStyledConfirm } from '../../utils/alertHelper'
 
 export default function DriverDeliveries() {
   const items = [
@@ -36,8 +36,12 @@ export default function DriverDeliveries() {
 
   // Mutation for updating delivery status
   const updateDeliveryStatus = useMutation({
-    mutationFn: async ({ deliveryId, status }) => {
-      return api.patch(`/deliveries/${deliveryId}/`, { status })
+    mutationFn: async ({ deliveryId, status, deliveredQuantity }) => {
+      const data = { status };
+      if (deliveredQuantity !== undefined) {
+        data.delivered_quantity = deliveredQuantity;
+      }
+      return api.patch(`/deliveries/${deliveryId}/`, data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['my-deliveries'])
@@ -63,24 +67,59 @@ export default function DriverDeliveries() {
 
   // Handle start delivery
   const handleStartDelivery = (deliveryId) => {
-    if (confirm('Start delivery for this order?')) {
-      updateDeliveryStatus.mutate({ deliveryId, status: 'in_route' })
-    }
+    createStyledConfirm(
+      'Start Delivery', 
+      'Are you sure you want to start delivery for this order?', 
+      () => updateDeliveryStatus.mutate({ deliveryId, status: 'in_route' })
+    )
   }
 
-  // Handle complete delivery
-  const handleCompleteDelivery = (deliveryId) => {
-    if (confirm('Mark this delivery as completed?')) {
-      updateDeliveryStatus.mutate({ deliveryId, status: 'delivered' })
-    }
+  // Handle complete delivery with input for delivered quantity
+  const handleCompleteDelivery = (delivery) => {
+    createStyledConfirm(
+      'Complete Delivery', 
+      'Mark this delivery as completed?',
+      (deliveredQuantity) => {
+        // Validate delivered quantity
+        const qty = parseInt(deliveredQuantity);
+        if (isNaN(qty) || qty <= 0) {
+          createStyledAlert('error', 'Invalid Quantity', 'Please enter a valid quantity greater than 0');
+          return;
+        }
+        
+        // Update delivery status and quantity
+        updateDeliveryStatus.mutate({ 
+          deliveryId: delivery.id, 
+          status: 'delivered',
+          deliveredQuantity: qty
+        });
+      },
+      null,
+      {
+        inputLabel: 'Delivered Quantity',
+        inputType: 'number',
+        inputPlaceholder: 'Enter quantity delivered',
+        inputRequired: true,
+        inputValue: delivery.order_quantity
+      }
+    );
   }
 
   // Handle cancel delivery
   const handleCancelDelivery = (deliveryId) => {
-    if (confirm('Cancel this delivery?')) {
-      updateDeliveryStatus.mutate({ deliveryId, status: 'cancelled' })
-    }
+    createStyledConfirm(
+      'Cancel Delivery', 
+      'Are you sure you want to cancel this delivery?', 
+      () => updateDeliveryStatus.mutate({ deliveryId, status: 'cancelled' })
+    )
   }
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <AppShell role="driver" sidebar={<Sidebar items={items} />}>
@@ -140,13 +179,13 @@ export default function DriverDeliveries() {
           </div>
         ) : (
           <div className="row g-4">
-            {/* Customer Orders Table */}
+            {/* Deliveries Table - Showing Completed Orders */}
             <div className="col-12">
               <div className="card border-0 shadow-sm">
                 <div className="card-header bg-white border-0 py-3">
                   <div className="d-flex align-items-center gap-2">
                     <Package className="text-primary" size={20} />
-                    <h5 className="mb-0">Customer Orders</h5>
+                    <h5 className="mb-0">Deliveries</h5>
                   </div>
                 </div>
                 <div className="card-body p-0">
@@ -157,74 +196,43 @@ export default function DriverDeliveries() {
                           <th>Order ID</th>
                           <th>Customer</th>
                           <th>Address</th>
-                          <th>Product</th>
                           <th>Quantity</th>
                           <th>Status</th>
-                          <th>Actions</th>
+                          <th>Delivered At</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {Array.isArray(deliveries) && deliveries.length > 0 ? (
-                          deliveries.map(delivery => (
+                        {Array.isArray(completedDeliveries) && completedDeliveries.length > 0 ? (
+                          completedDeliveries.map(delivery => (
                             <tr key={delivery.id}>
                               <td>#{delivery.order_id}</td>
                               <td>
                                 {delivery.customer_first_name} {delivery.customer_last_name}
                               </td>
                               <td>{delivery.customer_address}</td>
-                              <td>{delivery.order_product_name}</td>
                               <td>{delivery.order_quantity}</td>
                               <td>
                                 <span className={`badge ${
-                                  delivery.status === 'delivered' ? 'bg-success-subtle text-success-emphasis' :
-                                  delivery.status === 'in_route' ? 'bg-primary-subtle text-primary-emphasis' :
-                                  delivery.status === 'cancelled' ? 'bg-danger-subtle text-danger-emphasis' :
-                                  'bg-warning-subtle text-warning-emphasis'
+                                  delivery.status === 'delivered' ? 'bg-success' : 
+                                  delivery.status === 'in_route' ? 'bg-primary' : 
+                                  delivery.status === 'assigned' ? 'bg-warning' : 
+                                  delivery.status === 'cancelled' ? 'bg-danger' : 'bg-secondary'
                                 }`}>
-                                  {delivery.status}
+                                  {delivery.status.charAt(0).toUpperCase() + delivery.status.slice(1)}
                                 </span>
                               </td>
                               <td>
-                                {delivery.status === 'assigned' && (
-                                  <button 
-                                    className="btn btn-sm btn-success d-flex align-items-center gap-1"
-                                    onClick={() => handleStartDelivery(delivery.id)}
-                                    disabled={updateDeliveryStatus.isLoading}
-                                  >
-                                    <Play size={14} />
-                                    Start
-                                  </button>
-                                )}
-                                {delivery.status === 'in_route' && (
-                                  <div className="d-flex gap-2">
-                                    <button 
-                                      className="btn btn-sm btn-success d-flex align-items-center gap-1"
-                                      onClick={() => handleCompleteDelivery(delivery.id)}
-                                      disabled={updateDeliveryStatus.isLoading}
-                                    >
-                                      <CheckCircle size={14} />
-                                      Complete
-                                    </button>
-                                    <button 
-                                      className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
-                                      onClick={() => handleCancelDelivery(delivery.id)}
-                                      disabled={updateDeliveryStatus.isLoading}
-                                    >
-                                      <X size={14} />
-                                      Cancel
-                                    </button>
-                                  </div>
-                                )}
-                                {(delivery.status === 'delivered' || delivery.status === 'cancelled') && (
-                                  <span className="text-muted">No actions</span>
-                                )}
+                                <div className="d-flex align-items-center gap-1">
+                                  <Calendar size={14} className="text-muted" />
+                                  <span>{formatDate(delivery.delivered_at)}</span>
+                                </div>
                               </td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="7" className="text-center py-3">
-                              No deliveries found
+                            <td colSpan="6" className="text-center py-3">
+                              No completed deliveries found
                             </td>
                           </tr>
                         )}

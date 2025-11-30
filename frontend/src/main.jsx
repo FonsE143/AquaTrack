@@ -17,6 +17,7 @@ import StaffDashboard from './pages/staff/Dashboard'
 import StaffDeployment from './pages/staff/Deployment'
 import StaffActivityLogs from './pages/staff/ActivityLogs'
 import CustomerDashboard from './pages/customer/Dashboard'
+import CustomerOrders from './pages/customer/Orders'
 import DriverDashboard from './pages/driver/Dashboard'
 import DriverDeliveries from './pages/driver/Deliveries'
 import ProfilePage from './pages/Profile'
@@ -105,6 +106,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/staff/activity-logs" element={<RequireAuth allowedRoles={['staff', 'admin']}><StaffActivityLogs /></RequireAuth>} />
           {/* Customer */}
           <Route path="/customer/dashboard" element={<RequireAuth allowedRoles={['customer']}><CustomerDashboard /></RequireAuth>} />
+          <Route path="/customer/orders" element={<RequireAuth allowedRoles={['customer']}><CustomerOrders /></RequireAuth>} />
           {/* Driver */}
           <Route path="/driver/dashboard" element={<RequireAuth allowedRoles={['driver']}><DriverDashboard /></RequireAuth>} />
           <Route path="/driver/deliveries" element={<RequireAuth allowedRoles={['driver']}><DriverDeliveries /></RequireAuth>} />
