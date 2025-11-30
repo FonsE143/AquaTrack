@@ -375,24 +375,31 @@ class DeploymentSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
+    product_price = serializers.DecimalField(source='product.price', max_digits=10, decimal_places=2, read_only=True)
     customer_name = serializers.CharField(source='customer.user.username', read_only=True)
     customer_first_name = serializers.CharField(source='customer.first_name', read_only=True, allow_null=True)
     customer_last_name = serializers.CharField(source='customer.last_name', read_only=True, allow_null=True)
     total_quantity = serializers.SerializerMethodField(read_only=True)
+    total_amount = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Order
         fields = [
-            'id','product','product_name','customer','customer_name','customer_first_name','customer_last_name',
-            'created_at','quantity','free_items','total_quantity'
+            'id','product','product_name','product_price','customer','customer_name','customer_first_name','customer_last_name',
+            'created_at','quantity','free_items','total_quantity','total_amount'
         ]
-        read_only_fields = ['created_at', 'free_items', 'total_quantity']
+        read_only_fields = ['created_at', 'free_items', 'total_quantity', 'total_amount']
         extra_kwargs = {
             'customer': {'required': False}
         }
     
     def get_total_quantity(self, obj):
         return obj.quantity + obj.free_items
+    
+    def get_total_amount(self, obj):
+        if obj.product and obj.product.price:
+            return float(obj.product.price) * obj.quantity
+        return 0.0
 
     def create(self, validated_data):
         customer = validated_data.get('customer')
@@ -418,9 +425,11 @@ class DeliverySerializer(serializers.ModelSerializer):
         return result
     order_id = serializers.IntegerField(source='order.id', read_only=True)
     order_product_name = serializers.CharField(source='order.product.name', read_only=True)
+    order_product_price = serializers.DecimalField(source='order.product.price', max_digits=10, decimal_places=2, read_only=True)
     order_quantity = serializers.IntegerField(source='order.quantity', read_only=True)
     order_free_items = serializers.IntegerField(source='order.free_items', read_only=True)
     order_total_quantity = serializers.SerializerMethodField(read_only=True)
+    order_total_amount = serializers.SerializerMethodField(read_only=True)
     driver_username = serializers.CharField(source='driver.user.username', read_only=True, allow_null=True)
     driver_first_name = serializers.CharField(source='driver.first_name', read_only=True, allow_null=True)
     driver_last_name = serializers.CharField(source='driver.last_name', read_only=True, allow_null=True)
@@ -437,6 +446,11 @@ class DeliverySerializer(serializers.ModelSerializer):
     
     def get_order_total_quantity(self, obj):
         return obj.order.quantity + obj.order.free_items
+    
+    def get_order_total_amount(self, obj):
+        if obj.order.product and obj.order.product.price:
+            return float(obj.order.product.price) * obj.order.quantity
+        return 0.0
     
     def get_customer_address(self, obj):
         if obj.order and obj.order.customer and obj.order.customer.address:
@@ -466,7 +480,7 @@ class DeliverySerializer(serializers.ModelSerializer):
     class Meta:
         model = Delivery
         fields = [
-            'id','order','order_id','order_product_name','order_quantity','order_free_items','order_total_quantity','driver','driver_username','driver_first_name','driver_last_name','driver_phone','vehicle','vehicle_name','route','route_number','status','customer_first_name','customer_last_name','customer_address','customer_phone','delivered_quantity','delivered_at','created_at','updated_at'
+            'id','order','order_id','order_product_name','order_product_price','order_quantity','order_free_items','order_total_quantity','order_total_amount','driver','driver_username','driver_first_name','driver_last_name','driver_phone','vehicle','vehicle_name','route','route_number','status','customer_first_name','customer_last_name','customer_address','customer_phone','delivered_quantity','delivered_at','created_at','updated_at'
         ]
         read_only_fields = ['delivered_quantity','delivered_at','created_at','updated_at']
     

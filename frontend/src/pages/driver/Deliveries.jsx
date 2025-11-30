@@ -196,58 +196,6 @@ export default function DriverDeliveries() {
                   <div className="d-none d-md-block">
 
                     
-                    {/* In-Route Deliveries */}
-                    {Array.isArray(inRouteDeliveries) && inRouteDeliveries.length > 0 && (
-                      <div className="mb-4">
-                        <div className="border-bottom p-3 bg-light">
-                          <h6 className="mb-0">In-Route Deliveries</h6>
-                        </div>
-                        <div className="table-responsive">
-                          <table className="table table-hover mb-0">
-                            <thead className="table-light">
-                              <tr>
-                                <th>Order ID</th>
-                                <th>Customer</th>
-                                <th className="d-none d-lg-table-cell">Address</th>
-                                <th>Quantity</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {inRouteDeliveries.map(delivery => (
-                                <tr key={delivery.id}>
-                                  <td>#{delivery.order_id}</td>
-                                  <td>
-                                    {delivery.customer_first_name} {delivery.customer_last_name}
-                                  </td>
-                                  <td className="d-none d-lg-table-cell">{delivery.customer_address}</td>
-                                  <td>{delivery.order_quantity}</td>
-                                  <td>
-                                    <span className="badge bg-primary">In Route</span>
-                                  </td>
-                                  <td>
-                                    <button 
-                                      className="btn btn-sm btn-success"
-                                      onClick={() => handleCompleteDelivery(delivery)}
-                                    >
-                                      <CheckCircle size={14} className="me-1" /> Complete
-                                    </button>
-                                    <button 
-                                      className="btn btn-sm btn-danger ms-2"
-                                      onClick={() => handleCancelDelivery(delivery.id)}
-                                    >
-                                      <X size={14} /> Cancel
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                    
                     {/* Completed Deliveries */}
                     {Array.isArray(completedDeliveries) && completedDeliveries.length > 0 && (
                       <div>
@@ -261,7 +209,8 @@ export default function DriverDeliveries() {
                                 <th>Order ID</th>
                                 <th>Customer</th>
                                 <th className="d-none d-lg-table-cell">Address</th>
-                                <th>Quantity</th>
+                                <th>Delivered Quantity</th>
+                                <th>Cost</th>
                                 <th>Status</th>
                                 <th className="d-none d-lg-table-cell">Delivered At</th>
                               </tr>
@@ -274,7 +223,8 @@ export default function DriverDeliveries() {
                                     {delivery.customer_first_name} {delivery.customer_last_name}
                                   </td>
                                   <td className="d-none d-lg-table-cell">{delivery.customer_address}</td>
-                                  <td>{delivery.order_quantity}</td>
+                                  <td>{delivery.delivered_quantity || delivery.order_quantity || 0}</td>
+                                  <td>₱{delivery.order_total_amount ? parseFloat(delivery.order_total_amount).toFixed(2) : '0.00'}</td>
                                   <td>
                                     <span className="badge bg-success">Delivered</span>
                                   </td>
@@ -305,55 +255,6 @@ export default function DriverDeliveries() {
                   <div className="d-md-none">
 
                     
-                    {/* In-Route Deliveries */}
-                    {Array.isArray(inRouteDeliveries) && inRouteDeliveries.length > 0 && (
-                      <div className="mb-4">
-                        <div className="border-bottom p-3 bg-light">
-                          <h6 className="mb-0">In-Route Deliveries</h6>
-                        </div>
-                        <div className="list-group list-group-flush">
-                          {inRouteDeliveries.map(delivery => (
-                            <div key={delivery.id} className="list-group-item border-0 px-3 py-3">
-                              <div className="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                  <h6 className="mb-1">Order #{delivery.order_id}</h6>
-                                  <small className="text-muted">
-                                    {delivery.customer_first_name} {delivery.customer_last_name}
-                                  </small>
-                                </div>
-                                <span className="badge bg-primary">In Route</span>
-                              </div>
-                              
-                              <div className="mb-2">
-                                <small className="text-muted">Address:</small>
-                                <div>{delivery.customer_address}</div>
-                              </div>
-                              
-                              <div className="mb-2">
-                                <small className="text-muted">Quantity:</small>
-                                <div>{delivery.order_quantity}</div>
-                              </div>
-                              
-                              <div className="d-grid gap-2">
-                                <button 
-                                  className="btn btn-sm btn-success"
-                                  onClick={() => handleCompleteDelivery(delivery)}
-                                >
-                                  <CheckCircle size={14} className="me-1" /> Complete Delivery
-                                </button>
-                                <button 
-                                  className="btn btn-sm btn-danger"
-                                  onClick={() => handleCancelDelivery(delivery.id)}
-                                >
-                                  <X size={14} className="me-1" /> Cancel Delivery
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
                     {/* Completed Deliveries */}
                     {Array.isArray(completedDeliveries) && completedDeliveries.length > 0 && (
                       <div>
@@ -379,8 +280,13 @@ export default function DriverDeliveries() {
                               </div>
                               
                               <div className="mb-2">
-                                <small className="text-muted">Quantity:</small>
-                                <div>{delivery.order_quantity}</div>
+                                <small className="text-muted">Delivered Quantity:</small>
+                                <div>{delivery.delivered_quantity || delivery.order_quantity || 0}</div>
+                              </div>
+                              
+                              <div className="mb-2">
+                                <small className="text-muted">Cost:</small>
+                                <div>₱{delivery.order_total_amount ? parseFloat(delivery.order_total_amount).toFixed(2) : '0.00'}</div>
                               </div>
                               
                               <div>

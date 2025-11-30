@@ -68,6 +68,7 @@ export default function CustomerOrders() {
                           <th>Order ID</th>
                           <th>Product</th>
                           <th>Ordered Quantity</th>
+                          <th>Cost</th>
                           <th className="d-none d-lg-table-cell">Delivered Quantity</th>
                           <th>Status</th>
                           <th className="d-none d-lg-table-cell">Created At</th>
@@ -93,6 +94,7 @@ export default function CustomerOrders() {
                                   </div>
                                 )}
                               </td>
+                              <td>₱{delivery.order_total_amount ? parseFloat(delivery.order_total_amount).toFixed(2) : '0.00'}</td>
                               <td className="d-none d-lg-table-cell">
                                 {delivery.delivered_quantity || delivery.order_quantity || 0}
                               </td>
@@ -163,6 +165,11 @@ export default function CustomerOrders() {
                                   </div>
                                 )}
                               </div>
+                            </div>
+                            
+                            <div className="mb-2">
+                              <small className="text-muted">Cost:</small>
+                              <div>₱{delivery.order_total_amount ? parseFloat(delivery.order_total_amount).toFixed(2) : '0.00'}</div>
                             </div>
                             
                             <div className="mb-2">

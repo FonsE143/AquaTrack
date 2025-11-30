@@ -112,6 +112,11 @@ export default function DriverDashboard() {
   // Get completed deliveries
   const completedDeliveries = todaysDeliveries.filter(d => d.status === 'delivered')
 
+  // Filter out delivered and cancelled orders for the Customer Orders table
+  const pendingDeliveries = Array.isArray(deliveries) 
+    ? deliveries.filter(d => d.status !== 'delivered' && d.status !== 'cancelled')
+    : []
+
   return (
     <AppShell role="driver" sidebar={<Sidebar items={items} />}>
       <div className="container-fluid">
@@ -289,8 +294,8 @@ export default function DriverDashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {Array.isArray(deliveries) && deliveries.length > 0 ? (
-                            deliveries.map(delivery => (
+                          {Array.isArray(pendingDeliveries) && pendingDeliveries.length > 0 ? (
+                            pendingDeliveries.map(delivery => (
                               <tr key={delivery.id}>
                                 <td>#{delivery.order_id}</td>
                                 <td>
@@ -329,16 +334,13 @@ export default function DriverDashboard() {
                                       </button>
                                     </div>
                                   )}
-                                  {(delivery.status === 'delivered' || delivery.status === 'cancelled') && (
-                                    <span className="text-muted">No actions</span>
-                                  )}
                                 </td>
                               </tr>
                             ))
                           ) : (
                             <tr>
                               <td colSpan="5" className="text-center py-3">
-                                No deliveries found
+                                No pending deliveries found
                               </td>
                             </tr>
                           )}
@@ -348,9 +350,9 @@ export default function DriverDashboard() {
                     
                     {/* Mobile Card View */}
                     <div className="d-md-none">
-                      {Array.isArray(deliveries) && deliveries.length > 0 ? (
+                      {Array.isArray(pendingDeliveries) && pendingDeliveries.length > 0 ? (
                         <div className="list-group list-group-flush">
-                          {deliveries.map(delivery => (
+                          {pendingDeliveries.map(delivery => (
                             <div key={delivery.id} className="list-group-item border-0 px-3 py-3">
                               <div className="d-flex justify-content-between align-items-start mb-2">
                                 <div>
@@ -398,9 +400,6 @@ export default function DriverDashboard() {
                                     </button>
                                   </div>
                                 )}
-                                {(delivery.status === 'delivered' || delivery.status === 'cancelled') && (
-                                  <span className="text-muted">No actions available</span>
-                                )}
                               </div>
                             </div>
                           ))}
@@ -408,7 +407,7 @@ export default function DriverDashboard() {
                       ) : (
                         <div className="text-center py-5">
                           <Package size={48} className="text-muted mb-3" />
-                          <p className="text-muted mb-0">No deliveries found</p>
+                          <p className="text-muted mb-0">No pending deliveries found</p>
                         </div>
                       )}
                     </div>

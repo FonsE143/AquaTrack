@@ -341,6 +341,21 @@ class StaffViewSet(viewsets.ModelViewSet):
             } if profile.address else None
         }
         return Response(serialized_data, status=status.HTTP_201_CREATED)
+    
+    def destroy(self, request, *args, **kwargs):
+        # Get the profile object
+        profile = self.get_object()
+        
+        # Store user reference before deleting profile
+        user = profile.user
+        
+        # Delete the profile first
+        profile.delete()
+        
+        # Then delete the user
+        user.delete()
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class DriverViewSet(viewsets.ModelViewSet):
@@ -422,6 +437,21 @@ class DriverViewSet(viewsets.ModelViewSet):
             } if profile.address else None
         }
         return Response(serialized_data, status=status.HTTP_201_CREATED)
+    
+    def destroy(self, request, *args, **kwargs):
+        # Get the profile object
+        profile = self.get_object()
+        
+        # Store user reference before deleting profile
+        user = profile.user
+        
+        # Delete the profile first
+        profile.delete()
+        
+        # Then delete the user
+        user.delete()
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.select_related('product', 'customer__user').all()
