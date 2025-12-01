@@ -291,6 +291,78 @@ export default function AdminEmployees() {
     }
   })
 
+  // Validate employee form
+  const validateEmployeeForm = (formData) => {
+    const errors = {};
+    
+    // Validate username
+    if (!formData.get('username') || formData.get('username').trim().length < 3) {
+      errors.username = 'Username must be at least 3 characters long';
+    } else if (formData.get('username').trim().length > 30) {
+      errors.username = 'Username must be no more than 30 characters long';
+    } else {
+      // Check for valid characters in username (alphanumeric and underscore only)
+      const usernameRegex = /^[a-zA-Z0-9_]+$/;
+      if (!usernameRegex.test(formData.get('username').trim())) {
+        errors.username = 'Username can only contain letters, numbers, and underscores';
+      }
+    }
+    
+    // Validate names
+    if (!formData.get('first_name') || formData.get('first_name').trim().length === 0) {
+      errors.first_name = 'First name is required';
+    } else if (formData.get('first_name').trim().length > 50) {
+      errors.first_name = 'First name must be no more than 50 characters';
+    }
+    
+    if (!formData.get('last_name') || formData.get('last_name').trim().length === 0) {
+      errors.last_name = 'Last name is required';
+    } else if (formData.get('last_name').trim().length > 50) {
+      errors.last_name = 'Last name must be no more than 50 characters';
+    }
+    
+    // Validate email if provided
+    if (formData.get('email') && formData.get('email').trim() !== '') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.get('email').trim())) {
+        errors.email = 'Please enter a valid email address';
+      }
+    }
+    
+    // Validate phone if provided
+    if (formData.get('phone') && formData.get('phone').trim() !== '') {
+      // Allow common phone formats
+      const phoneRegex = /^(09\d{2}[-\s]?\d{3}[-\s]?\d{4}|\+639\d{9})$/;
+      if (!phoneRegex.test(formData.get('phone').trim())) {
+        errors.phone = 'Invalid phone number format. Use 09xx xxx xxxx or +639xxxxxxxxx';
+      }
+    }
+    
+    // Validate address fields if any are provided
+    const municipality = addressForm.municipality;
+    const barangay = addressForm.barangay;
+    const addressDetails = addressForm.address_details;
+    
+    if (municipality || barangay || addressDetails) {
+      // All address fields are required if any are provided
+      if (!municipality) {
+        errors.municipality = 'Municipality is required when providing an address';
+      }
+      
+      if (!barangay) {
+        errors.barangay = 'Barangay is required when providing an address';
+      }
+      
+      if (!addressDetails || addressDetails.trim() === '') {
+        errors.address_details = 'House Number / Lot Number / Street is required when providing an address';
+      } else if (addressDetails.trim().length > 200) {
+        errors.address_details = 'Address details must be no more than 200 characters';
+      }
+    }
+    
+    return Object.keys(errors).length > 0 ? errors : null;
+  };
+
   // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -309,12 +381,21 @@ export default function AdminEmployees() {
         updateVehicleMutation.mutate({ vehicleId: currentItem.id, vehicleData })
       }
     } else {
+      // Validate employee form
+      const errors = validateEmployeeForm(formData);
+      if (errors) {
+        // Display errors
+        const errorMessages = Object.values(errors).join(', ');
+        createStyledAlert('error', 'Validation Error', errorMessages);
+        return;
+      }
+      
       const userData = {
-        username: formData.get('username'),
-        first_name: formData.get('first_name'),
-        last_name: formData.get('last_name'),
-        email: formData.get('email'),
-        phone: formData.get('phone'),
+        username: formData.get('username').trim(),
+        first_name: formData.get('first_name').trim(),
+        last_name: formData.get('last_name').trim(),
+        email: formData.get('email').trim(),
+        phone: formData.get('phone').trim(),
         role: activeTab === 'staff' ? 'staff' : 'driver'
       }
       
@@ -322,7 +403,7 @@ export default function AdminEmployees() {
       if (addressForm.municipality && addressForm.barangay && addressForm.address_details) {
         userData.municipality = addressForm.municipality
         userData.barangay = addressForm.barangay
-        userData.address_details = addressForm.address_details
+        userData.address_details = addressForm.address_details.trim()
       }
       
       // For new users, don't send password as backend sets default passwords
@@ -390,7 +471,7 @@ export default function AdminEmployees() {
       return (
         <>
           <div className="mb-3">
-            <label className="form-label">Username</label>
+            <label className="form-label">Username *</label>
             <input 
               type="text" 
               className="form-control" 
@@ -398,9 +479,12 @@ export default function AdminEmployees() {
               defaultValue={currentItem?.username || ''}
               required 
             />
+            <div className="form-text small text-muted">
+              3-30 characters, letters, numbers, and underscores only
+            </div>
           </div>
           <div className="mb-3">
-            <label className="form-label">First Name</label>
+            <label className="form-label">First Name *</label>
             <input 
               type="text" 
               className="form-control" 
@@ -410,7 +494,7 @@ export default function AdminEmployees() {
             />
           </div>
           <div className="mb-3">
-            <label className="form-label">Last Name</label>
+            <label className="form-label">Last Name *</label>
             <input 
               type="text" 
               className="form-control" 
@@ -426,7 +510,6 @@ export default function AdminEmployees() {
               className="form-control" 
               name="email" 
               defaultValue={currentItem?.email || ''}
-              required 
             />
           </div>
           <div className="mb-3">
@@ -437,6 +520,9 @@ export default function AdminEmployees() {
               name="phone" 
               defaultValue={currentItem?.phone || ''}
             />
+            <div className="form-text small text-muted">
+              Optional. Format: 09xx xxx xxxx or +639xxxxxxxxx
+            </div>
           </div>
           
           {/* Address Section */}
@@ -488,6 +574,9 @@ export default function AdminEmployees() {
                 onChange={(e) => setAddressForm({...addressForm, address_details: e.target.value})}
                 rows="2"
               />
+              <div className="form-text small text-muted">
+                Maximum 200 characters
+              </div>
             </div>
           </div>
         </>

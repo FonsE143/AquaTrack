@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.contrib.auth import authenticate
 from core.models import Product, Order, Delivery, Profile, Notification, OrderHistory, CancelledOrder
 from core.models import ActivityLog, Municipality, Barangay, Address, WalkInOrder, Route, Vehicle, Deployment
+import re
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
@@ -15,12 +17,38 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
     
     def validate(self, attrs):
-        data = super().validate(attrs)
+        # Custom validation for username and password
+        username = attrs.get('username')
+        password = attrs.get('password')
+        
+        # Validate username format
+        if not username or len(username.strip()) < 3:
+            raise serializers.ValidationError('Username must be at least 3 characters long.')
+        
+        if len(username.strip()) > 30:
+            raise serializers.ValidationError('Username must be no more than 30 characters long.')
+        
+        # Check for valid characters in username (alphanumeric and underscore only)
+        if not re.match(r'^[a-zA-Z0-9_]+$', username):
+            raise serializers.ValidationError('Username can only contain letters, numbers, and underscores.')
+        
+        # Authenticate user
+        user = authenticate(username=username, password=password)
+        if not user:
+            raise serializers.ValidationError('Invalid username or password.')
+        
+        # Check if user is active
+        if not user.is_active:
+            raise serializers.ValidationError('User account is disabled.')
+        
         # Add role to response
-        if hasattr(self.user, 'profile'):
-            data['role'] = self.user.profile.role
+        if hasattr(user, 'profile'):
+            attrs['role'] = user.profile.role
         else:
-            data['role'] = self.user.role if hasattr(self.user, 'role') else 'customer'
+            attrs['role'] = user.role if hasattr(user, 'role') else 'customer'
+            
+        # Call parent validate to continue normal flow
+        data = super().validate(attrs)
         return data
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -85,17 +113,41 @@ class ProfileSerializer(serializers.ModelSerializer):
         last_name = validated_data.get('last_name')
         user_fields_to_update = []
         
-        if email is not None:
-            instance.user.email = email
-            user_fields_to_update.append('email')
+        # Validate names if provided
         if first_name is not None:
+            if len(first_name) > 50:
+                raise serializers.ValidationError({'first_name': 'First name must be no more than 50 characters.'})
             instance.first_name = first_name
             instance.user.first_name = first_name
             user_fields_to_update.append('first_name')
+            
         if last_name is not None:
+            if len(last_name) > 50:
+                raise serializers.ValidationError({'last_name': 'Last name must be no more than 50 characters.'})
             instance.last_name = last_name
             instance.user.last_name = last_name
             user_fields_to_update.append('last_name')
+        
+        if email is not None:
+            # Validate email format if provided
+            if email:
+                import re
+                email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+                if not re.match(email_regex, email):
+                    raise serializers.ValidationError({'email': 'Invalid email format.'})
+            instance.user.email = email
+            user_fields_to_update.append('email')
+        
+        # Handle phone validation
+        phone = validated_data.get('phone')
+        if phone is not None:
+            if phone:
+                # Validate phone format if provided
+                import re
+                phone_regex = r'^(09\d{2}[-\s]?\d{3}[-\s]?\d{4}|\+639\d{9})$'
+                if not re.match(phone_regex, phone):
+                    raise serializers.ValidationError({'phone': 'Invalid phone number format. Use 09xx xxx xxxx or +639xxxxxxxxx.'})
+            instance.phone = phone
         
         # Handle address field - create or update address based on provided data
         municipality_id = validated_data.get('municipality')
@@ -111,6 +163,10 @@ class ProfileSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'barangay': 'Barangay is required when setting an address.'})
             if not address_details or not address_details.strip():
                 raise serializers.ValidationError({'address_details': 'House Number / Lot Number / Street is required.'})
+            
+            # Validate address details length
+            if len(address_details.strip()) > 200:
+                raise serializers.ValidationError({'address_details': 'Address details must be no more than 200 characters.'})
             
             try:
                 municipality = Municipality.objects.get(id=municipality_id)
@@ -139,10 +195,6 @@ class ProfileSerializer(serializers.ModelSerializer):
             # Handle direct address assignment
             instance.address = validated_data['address']
             
-        for field in ['phone']:
-            if field in validated_data:
-                setattr(instance, field, validated_data[field])
-        
         instance.save()
         if user_fields_to_update:
             instance.user.save(update_fields=user_fields_to_update)

@@ -9,6 +9,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 export default function Register() {
   const [formData, setFormData] = useState({
     username: '',
+    first_name: '',
+    last_name: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -63,36 +65,131 @@ export default function Register() {
     }
   }, [formData.municipality]);
 
-  const isFormValid = formData.username.trim() !== '' && 
+  // Enhanced form validation
+  const isFormValid = formData.username.trim().length >= 3 && 
+                     formData.username.trim().length <= 30 &&
                      formData.email.trim() !== '' && 
-                     formData.password.trim() !== '' &&
-                     formData.password === formData.confirmPassword;
+                     formData.password.trim().length >= 8 &&
+                     formData.password === formData.confirmPassword &&
+                     formData.first_name?.trim() !== '' &&
+                     formData.last_name?.trim() !== '' &&
+                     formData.municipality !== '' &&
+                     formData.barangay !== '' &&
+                     formData.address_details.trim() !== '';
+
+  const validateForm = () => {
+    // Validate username
+    if (formData.username.trim().length < 3) {
+      setError('Username must be at least 3 characters long');
+      return false;
+    }
+    
+    if (formData.username.trim().length > 30) {
+      setError('Username must be no more than 30 characters long');
+      return false;
+    }
+    
+    // Check for valid characters in username (alphanumeric and underscore only)
+    const usernameRegex = /^[a-zA-Z0-9_]+$/;
+    if (!usernameRegex.test(formData.username.trim())) {
+      setError('Username can only contain letters, numbers, and underscores');
+      return false;
+    }
+    
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email.trim())) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+    
+    // Validate password
+    if (formData.password.trim().length < 8) {
+      setError('Password must be at least 8 characters long');
+      return false;
+    }
+    
+    // Validate password confirmation
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return false;
+    }
+    
+    // Validate names (assuming first_name and last_name are added to formData)
+    if (!formData.first_name || formData.first_name.trim().length === 0) {
+      setError('First name is required');
+      return false;
+    }
+    
+    if (formData.first_name.trim().length > 50) {
+      setError('First name must be no more than 50 characters');
+      return false;
+    }
+    
+    if (!formData.last_name || formData.last_name.trim().length === 0) {
+      setError('Last name is required');
+      return false;
+    }
+    
+    if (formData.last_name.trim().length > 50) {
+      setError('Last name must be no more than 50 characters');
+      return false;
+    }
+    
+    // Validate phone if provided
+    if (formData.phone.trim() !== '') {
+      // Allow common phone formats
+      const phoneRegex = /^(09\d{2}[-\s]?\d{3}[-\s]?\d{4}|\+639\d{9})$/;
+      if (!phoneRegex.test(formData.phone.trim())) {
+        setError('Invalid phone number format. Use 09xx xxx xxxx or +639xxxxxxxxx');
+        return false;
+      }
+    }
+    
+    // Validate address fields
+    if (formData.municipality === '') {
+      setError('Please select a municipality');
+      return false;
+    }
+    
+    if (formData.barangay === '') {
+      setError('Please select a barangay');
+      return false;
+    }
+    
+    if (formData.address_details.trim() === '') {
+      setError('House Number / Lot Number / Street is required');
+      return false;
+    }
+    
+    if (formData.address_details.trim().length > 200) {
+      setError('Address details must be no more than 200 characters');
+      return false;
+    }
+    
+    return true;
+  };
 
   const submit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-    
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long');
+    // Validate form before submission
+    if (!validateForm()) {
       return;
     }
     
     setLoading(true);
     try {
       await axios.post(`${API_BASE_URL}/account/register/`, {
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-        phone: formData.phone,
+        username: formData.username.trim(),
+        email: formData.email.trim(),
+        password: formData.password.trim(),
+        phone: formData.phone.trim(),
         municipality: formData.municipality,
         barangay: formData.barangay,
-        address_details: formData.address_details
+        address_details: formData.address_details.trim()
       });
       
       setSuccess('Registration successful! Please login.');
@@ -151,6 +248,33 @@ export default function Register() {
           <div className="alert alert-danger py-2 text-center small">{error}</div>
         )}
 
+        {/* First Name */}
+        <div className="mb-3">
+          <label className="form-label fw-semibold small">First Name *</label>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Enter your first name"
+            value={formData.first_name || ''}
+            onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+            required
+            autoFocus
+          />
+        </div>
+
+        {/* Last Name */}
+        <div className="mb-3">
+          <label className="form-label fw-semibold small">Last Name *</label>
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Enter your last name"
+            value={formData.last_name || ''}
+            onChange={(e) => setFormData({...formData, last_name: e.target.value})}
+            required
+          />
+        </div>
+
         {/* Username */}
         <div className="mb-3">
           <label className="form-label fw-semibold small">Username *</label>
@@ -161,8 +285,10 @@ export default function Register() {
             value={formData.username}
             onChange={(e) => setFormData({...formData, username: e.target.value})}
             required
-            autoFocus
           />
+          <div className="form-text small text-muted">
+            3-30 characters, letters, numbers, and underscores only
+          </div>
         </div>
 
         {/* Email */}
@@ -190,6 +316,9 @@ export default function Register() {
             required
             minLength={8}
           />
+          <div className="form-text small text-muted">
+            At least 8 characters
+          </div>
         </div>
 
         {/* Confirm Password */}
@@ -215,6 +344,9 @@ export default function Register() {
             value={formData.phone}
             onChange={(e) => setFormData({...formData, phone: e.target.value})}
           />
+          <div className="form-text small text-muted">
+            Optional. Format: 09xx xxx xxxx or +639xxxxxxxxx
+          </div>
         </div>
 
         {/* Address Section */}
@@ -269,6 +401,9 @@ export default function Register() {
               rows="2"
               required
             />
+            <div className="form-text small text-muted">
+              Maximum 200 characters
+            </div>
           </div>
         </div>
 

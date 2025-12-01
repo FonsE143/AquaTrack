@@ -19,17 +19,54 @@ export default function Login() {
   // Check for success message from registration
   const successMessage = location.state?.message;
 
-  const isFormValid = username.trim() !== '' && password.trim() !== '';
+  // Enhanced form validation
+  const isFormValid = username.trim().length >= 3 && username.trim().length <= 30 && 
+                     password.trim().length >= 8;
+
+  const validateForm = () => {
+    // Validate username
+    if (username.trim().length < 3) {
+      setError('Username must be at least 3 characters long');
+      return false;
+    }
+    
+    if (username.trim().length > 30) {
+      setError('Username must be no more than 30 characters long');
+      return false;
+    }
+    
+    // Check for valid characters in username (alphanumeric and underscore only)
+    const usernameRegex = /^[a-zA-Z0-9_]+$/;
+    if (!usernameRegex.test(username.trim())) {
+      setError('Username can only contain letters, numbers, and underscores');
+      return false;
+    }
+    
+    // Validate password
+    if (password.trim().length < 8) {
+      setError('Password must be at least 8 characters long');
+      return false;
+    }
+    
+    return true;
+  };
 
   const submit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setLoading(true);
+    
+    // Validate form before submission
+    if (!validateForm()) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       const { data } = await axios.post(`${API_BASE_URL.replace('/api', '')}/api/auth/token/`, {
-        username: username,
-        password,
+        username: username.trim(),
+        password: password.trim(),
       });
       localStorage.setItem('token', data.access);
       if (data.refresh) {

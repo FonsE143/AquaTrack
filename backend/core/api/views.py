@@ -285,20 +285,116 @@ class StaffViewSet(viewsets.ModelViewSet):
         return super().get_queryset()
     
     def create(self, request, *args, **kwargs):
+        # Validate required fields
+        username = request.data.get('username', '').strip()
+        first_name = request.data.get('first_name', '').strip()
+        last_name = request.data.get('last_name', '').strip()
+        email = request.data.get('email', '').strip()
+        phone = request.data.get('phone', '').strip()
+        
+        # Validate username
+        if not username:
+            return Response(
+                {'error': 'Username is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(username) < 3 or len(username) > 30:
+            return Response(
+                {'error': 'Username must be between 3 and 30 characters'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        import re
+        if not re.match(r'^[a-zA-Z0-9_]+$', username):
+            return Response(
+                {'error': 'Username can only contain letters, numbers, and underscores'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Check if username already exists
-        username = request.data.get('username')
         if User.objects.filter(username=username).exists():
             return Response(
                 {'error': 'Username already exists'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Validate names
+        if not first_name:
+            return Response(
+                {'error': 'First name is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not last_name:
+            return Response(
+                {'error': 'Last name is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(first_name) > 50 or len(last_name) > 50:
+            return Response(
+                {'error': 'Names must be no more than 50 characters'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate email if provided
+        if email:
+            import re
+            email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_regex, email):
+                return Response(
+                    {'error': 'Invalid email format'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Validate phone if provided
+        if phone:
+            # Allow common phone formats
+            phone_regex = r'^(09\d{2}[-\s]?\d{3}[-\s]?\d{4}|\+639\d{9})$'
+            if not re.match(phone_regex, phone):
+                return Response(
+                    {'error': 'Invalid phone number format. Use 09xx xxx xxxx or +639xxxxxxxxx'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Validate address fields if any are provided
+        municipality_id = request.data.get('municipality')
+        barangay_id = request.data.get('barangay')
+        address_details = request.data.get('address_details', '').strip()
+        
+        if municipality_id or barangay_id or address_details:
+            # All address fields are required if any are provided
+            if not municipality_id:
+                return Response(
+                    {'error': 'Municipality is required when providing an address'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if not barangay_id:
+                return Response(
+                    {'error': 'Barangay is required when providing an address'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if not address_details:
+                return Response(
+                    {'error': 'House Number / Lot Number / Street is required when providing an address'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if len(address_details) > 200:
+                return Response(
+                    {'error': 'Address details must be no more than 200 characters'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         # Create user first
         user_data = {
             'username': username,
-            'email': request.data.get('email', ''),
-            'first_name': request.data.get('first_name', ''),
-            'last_name': request.data.get('last_name', ''),
+            'email': email,
+            'first_name': first_name,
+            'last_name': last_name,
         }
         
         # Set default password for staff
@@ -308,16 +404,12 @@ class StaffViewSet(viewsets.ModelViewSet):
         profile_data = {
             'user': user,
             'role': 'staff',
-            'first_name': user_data['first_name'],
-            'last_name': user_data['last_name'],
-            'phone': request.data.get('phone', ''),
+            'first_name': first_name,
+            'last_name': last_name,
+            'phone': phone,
         }
         
         # Handle address if provided
-        municipality_id = request.data.get('municipality')
-        barangay_id = request.data.get('barangay')
-        address_details = request.data.get('address_details')
-        
         if municipality_id and barangay_id and address_details:
             try:
                 from core.models import Municipality, Barangay, Address
@@ -325,13 +417,36 @@ class StaffViewSet(viewsets.ModelViewSet):
                 barangay = Barangay.objects.get(id=barangay_id, municipality=municipality)
                 address = Address.objects.create(
                     barangay=barangay,
-                    full_address=address_details.strip()
+                    full_address=address_details
                 )
                 profile_data['address'] = address
+            except Municipality.DoesNotExist:
+                user.delete()  # Clean up user
+                return Response(
+                    {'error': 'Invalid municipality selected'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            except Barangay.DoesNotExist:
+                user.delete()  # Clean up user
+                return Response(
+                    {'error': 'Invalid barangay selected'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             except Exception as e:
-                pass  # Silently ignore address errors for now
+                user.delete()  # Clean up user
+                return Response(
+                    {'error': 'Failed to create address'}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
         
-        profile = Profile.objects.create(**profile_data)
+        try:
+            profile = Profile.objects.create(**profile_data)
+        except Exception as e:
+            user.delete()  # Clean up user
+            return Response(
+                {'error': 'Failed to create profile'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
         # Serialize and return the created profile
         # We need to manually create the serialized data since the serializer has role as read_only
@@ -395,20 +510,116 @@ class DriverViewSet(viewsets.ModelViewSet):
         return super().get_queryset()
     
     def create(self, request, *args, **kwargs):
+        # Validate required fields
+        username = request.data.get('username', '').strip()
+        first_name = request.data.get('first_name', '').strip()
+        last_name = request.data.get('last_name', '').strip()
+        email = request.data.get('email', '').strip()
+        phone = request.data.get('phone', '').strip()
+        
+        # Validate username
+        if not username:
+            return Response(
+                {'error': 'Username is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(username) < 3 or len(username) > 30:
+            return Response(
+                {'error': 'Username must be between 3 and 30 characters'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        import re
+        if not re.match(r'^[a-zA-Z0-9_]+$', username):
+            return Response(
+                {'error': 'Username can only contain letters, numbers, and underscores'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Check if username already exists
-        username = request.data.get('username')
         if User.objects.filter(username=username).exists():
             return Response(
                 {'error': 'Username already exists'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Validate names
+        if not first_name:
+            return Response(
+                {'error': 'First name is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not last_name:
+            return Response(
+                {'error': 'Last name is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(first_name) > 50 or len(last_name) > 50:
+            return Response(
+                {'error': 'Names must be no more than 50 characters'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate email if provided
+        if email:
+            import re
+            email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_regex, email):
+                return Response(
+                    {'error': 'Invalid email format'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Validate phone if provided
+        if phone:
+            # Allow common phone formats
+            phone_regex = r'^(09\d{2}[-\s]?\d{3}[-\s]?\d{4}|\+639\d{9})$'
+            if not re.match(phone_regex, phone):
+                return Response(
+                    {'error': 'Invalid phone number format. Use 09xx xxx xxxx or +639xxxxxxxxx'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Validate address fields if any are provided
+        municipality_id = request.data.get('municipality')
+        barangay_id = request.data.get('barangay')
+        address_details = request.data.get('address_details', '').strip()
+        
+        if municipality_id or barangay_id or address_details:
+            # All address fields are required if any are provided
+            if not municipality_id:
+                return Response(
+                    {'error': 'Municipality is required when providing an address'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if not barangay_id:
+                return Response(
+                    {'error': 'Barangay is required when providing an address'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if not address_details:
+                return Response(
+                    {'error': 'House Number / Lot Number / Street is required when providing an address'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if len(address_details) > 200:
+                return Response(
+                    {'error': 'Address details must be no more than 200 characters'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         # Create user first
         user_data = {
             'username': username,
-            'email': request.data.get('email', ''),
-            'first_name': request.data.get('first_name', ''),
-            'last_name': request.data.get('last_name', ''),
+            'email': email,
+            'first_name': first_name,
+            'last_name': last_name,
         }
         
         # Set default password for driver
@@ -418,16 +629,12 @@ class DriverViewSet(viewsets.ModelViewSet):
         profile_data = {
             'user': user,
             'role': 'driver',
-            'first_name': user_data['first_name'],
-            'last_name': user_data['last_name'],
-            'phone': request.data.get('phone', ''),
+            'first_name': first_name,
+            'last_name': last_name,
+            'phone': phone,
         }
         
         # Handle address if provided
-        municipality_id = request.data.get('municipality')
-        barangay_id = request.data.get('barangay')
-        address_details = request.data.get('address_details')
-        
         if municipality_id and barangay_id and address_details:
             try:
                 from core.models import Municipality, Barangay, Address
@@ -435,13 +642,36 @@ class DriverViewSet(viewsets.ModelViewSet):
                 barangay = Barangay.objects.get(id=barangay_id, municipality=municipality)
                 address = Address.objects.create(
                     barangay=barangay,
-                    full_address=address_details.strip()
+                    full_address=address_details
                 )
                 profile_data['address'] = address
+            except Municipality.DoesNotExist:
+                user.delete()  # Clean up user
+                return Response(
+                    {'error': 'Invalid municipality selected'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            except Barangay.DoesNotExist:
+                user.delete()  # Clean up user
+                return Response(
+                    {'error': 'Invalid barangay selected'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             except Exception as e:
-                pass  # Silently ignore address errors for now
+                user.delete()  # Clean up user
+                return Response(
+                    {'error': 'Failed to create address'}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
         
-        profile = Profile.objects.create(**profile_data)
+        try:
+            profile = Profile.objects.create(**profile_data)
+        except Exception as e:
+            user.delete()  # Clean up user
+            return Response(
+                {'error': 'Failed to create profile'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
         # Serialize and return the created profile
         # We need to manually create the serialized data since the serializer has role as read_only
