@@ -146,6 +146,7 @@ export default function AdminEmployees() {
             <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
               <button 
                 className="page-link" 
+                style={{ backgroundColor: '#28a745', color: 'white', borderColor: '#28a745' }}
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               >
                 Previous
@@ -156,6 +157,7 @@ export default function AdminEmployees() {
               <li key={number} className={`page-item ${currentPage === number ? 'active' : ''}`}>
                 <button 
                   className="page-link" 
+                  style={currentPage === number ? { backgroundColor: '#28a745', borderColor: '#28a745', color: 'white' } : { color: '#28a745', backgroundColor: 'white' }}
                   onClick={() => setCurrentPage(number)}
                 >
                   {number}
@@ -166,6 +168,7 @@ export default function AdminEmployees() {
             <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
               <button 
                 className="page-link" 
+                style={{ backgroundColor: '#28a745', color: 'white', borderColor: '#28a745' }}
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               >
                 Next
@@ -697,7 +700,7 @@ export default function AdminEmployees() {
                 return (
                   <tr key={user.id} style={{ height: '80px' }}>
                     <td>
-                      <div className="d-flex flex-column">
+                      <div className="d-flex flex-column justify-content-center" style={{ height: '100%' }}>
                         <span className="fw-bold">{user.username}</span>
                         <span className="d-md-none text-muted small">
                           {user.first_name} {user.last_name}
@@ -705,17 +708,23 @@ export default function AdminEmployees() {
                       </div>
                     </td>
                     <td className="d-none d-md-table-cell">
-                      {user.first_name} {user.last_name}
+                      <div className="d-flex align-items-center" style={{ height: '100%' }}>
+                        {user.first_name} {user.last_name}
+                      </div>
                     </td>
                     <td className="d-none d-md-table-cell">
-                      <div className="d-flex flex-column">
+                      <div className="d-flex flex-column justify-content-center" style={{ height: '100%' }}>
                         <span>{user.email}</span>
                         <span className="d-lg-none text-muted small">Phone: {user.phone || 'N/A'}</span>
                       </div>
                     </td>
-                    <td className="d-none d-lg-table-cell">{user.phone || 'N/A'}</td>
+                    <td className="d-none d-lg-table-cell">
+                      <div className="d-flex align-items-center" style={{ height: '100%' }}>
+                        {user.phone || 'N/A'}
+                      </div>
+                    </td>
                     <td>
-                      <div className="d-flex gap-1 gap-md-2">
+                      <div className="d-flex gap-1 gap-md-2 align-items-center" style={{ height: '100%' }}>
                         <button 
                           className="btn btn-primary btn-sm"
                           onClick={() => openEditModal(user)}
@@ -747,7 +756,7 @@ export default function AdminEmployees() {
               // For empty rows, show placeholder content
               return (
                 <tr key={`empty-${index}`} style={{ height: '80px' }}>
-                  <td colSpan="5" className="text-center py-4">
+                  <td colSpan="5" className="text-center align-middle">
                     {currentStaff.length === 0 && index === 0 && (!staff || staff.length === 0) && (
                       'No staff members found.'
                     )}
@@ -778,7 +787,7 @@ export default function AdminEmployees() {
                 return (
                   <tr key={user.id} style={{ height: '80px' }}>
                     <td>
-                      <div className="d-flex flex-column">
+                      <div className="d-flex flex-column justify-content-center" style={{ height: '100%' }}>
                         <span className="fw-bold">{user.username}</span>
                         <span className="d-md-none text-muted small">
                           {user.first_name} {user.last_name}
@@ -786,17 +795,23 @@ export default function AdminEmployees() {
                       </div>
                     </td>
                     <td className="d-none d-md-table-cell">
-                      {user.first_name} {user.last_name}
+                      <div className="d-flex align-items-center" style={{ height: '100%' }}>
+                        {user.first_name} {user.last_name}
+                      </div>
                     </td>
                     <td className="d-none d-md-table-cell">
-                      <div className="d-flex flex-column">
+                      <div className="d-flex flex-column justify-content-center" style={{ height: '100%' }}>
                         <span>{user.email}</span>
                         <span className="d-lg-none text-muted small">Phone: {user.phone || 'N/A'}</span>
                       </div>
                     </td>
-                    <td className="d-none d-lg-table-cell">{user.phone || 'N/A'}</td>
+                    <td className="d-none d-lg-table-cell">
+                      <div className="d-flex align-items-center" style={{ height: '100%' }}>
+                        {user.phone || 'N/A'}
+                      </div>
+                    </td>
                     <td>
-                      <div className="d-flex gap-1 gap-md-2">
+                      <div className="d-flex gap-1 gap-md-2 align-items-center" style={{ height: '100%' }}>
                         <button 
                           className="btn btn-primary btn-sm"
                           onClick={() => openEditModal(user)}
@@ -828,7 +843,7 @@ export default function AdminEmployees() {
               // For empty rows, show placeholder content
               return (
                 <tr key={`empty-${index}`} style={{ height: '80px' }}>
-                  <td colSpan="5" className="text-center py-4">
+                  <td colSpan="5" className="text-center align-middle">
                     {currentDrivers.length === 0 && index === 0 && (!drivers || drivers.length === 0) && (
                       'No drivers found.'
                     )}
@@ -858,7 +873,7 @@ export default function AdminEmployees() {
                 return (
                   <tr key={vehicle.id} style={{ height: '80px' }}>
                     <td>
-                      <div className="d-flex flex-column">
+                      <div className="d-flex flex-column justify-content-center" style={{ height: '100%' }}>
                         <span className="fw-bold">{vehicle.name}</span>
                         <span className="d-md-none text-muted small">
                           Plate: {vehicle.plate_number}
@@ -868,10 +883,18 @@ export default function AdminEmployees() {
                         </span>
                       </div>
                     </td>
-                    <td className="d-none d-md-table-cell">{vehicle.plate_number}</td>
-                    <td className="d-none d-lg-table-cell">{vehicle.stock_limit}</td>
+                    <td className="d-none d-md-table-cell">
+                      <div className="d-flex align-items-center" style={{ height: '100%' }}>
+                        {vehicle.plate_number}
+                      </div>
+                    </td>
+                    <td className="d-none d-lg-table-cell">
+                      <div className="d-flex align-items-center" style={{ height: '100%' }}>
+                        {vehicle.stock_limit}
+                      </div>
+                    </td>
                     <td>
-                      <div className="d-flex gap-1 gap-md-2">
+                      <div className="d-flex gap-1 gap-md-2 align-items-center" style={{ height: '100%' }}>
                         <button 
                           className="btn btn-primary btn-sm"
                           onClick={() => {
@@ -909,7 +932,7 @@ export default function AdminEmployees() {
               // For empty rows, show placeholder content
               return (
                 <tr key={`empty-${index}`} style={{ height: '80px' }}>
-                  <td colSpan="4" className="text-center py-4">
+                  <td colSpan="4" className="text-center align-middle">
                     {currentVehicles.length === 0 && index === 0 && (!vehicles || vehicles.length === 0) && (
                       'No vehicles found.'
                     )}

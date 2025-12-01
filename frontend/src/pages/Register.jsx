@@ -184,6 +184,8 @@ export default function Register() {
     try {
       await axios.post(`${API_BASE_URL}/account/register/`, {
         username: formData.username.trim(),
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
         email: formData.email.trim(),
         password: formData.password.trim(),
         phone: formData.phone.trim(),
@@ -221,12 +223,16 @@ export default function Register() {
 
   return (
     <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light px-3 px-md-5">
-      <form
-        onSubmit={submit}
-        className="bg-white rounded-4 shadow p-4 p-md-5 w-100"
-        style={{ maxWidth: '500px' }}
+      <div
+        className="bg-white rounded-4 shadow w-100"
+        style={{ maxWidth: '500px', maxHeight: '90vh', overflow: 'hidden' }}
       >
-        {/* Logo + Brand */}
+        <div 
+          className="p-4 p-md-5" 
+          style={{ height: '90vh', overflowY: 'auto' }}
+        >
+          <form onSubmit={submit}>
+            {/* Logo + Brand */}
         <div className="text-center mb-4">
           <Droplet className="text-success mb-1" size={30} />
           <h5 className="fw-bold text-success mb-1">AquaFlow</h5>
@@ -425,7 +431,9 @@ export default function Register() {
             </Link>
           </small>
         </div>
-      </form>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }
