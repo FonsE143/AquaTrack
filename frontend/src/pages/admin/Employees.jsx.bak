@@ -385,48 +385,40 @@ export default function AdminEmployees() {
     const errors = {};
     
     // Validate username
-    const username = formData.get('username');
-    if (!username || username.trim() === '') {
-      errors.username = 'Username is required';
-    } else if (username.trim().length < 3) {
+    if (!formData.get('username') || formData.get('username').trim().length < 3) {
       errors.username = 'Username must be at least 3 characters long';
-    } else if (username.trim().length > 30) {
+    } else if (formData.get('username').trim().length > 30) {
       errors.username = 'Username must be no more than 30 characters long';
     } else {
       // Check for valid characters in username (alphanumeric and underscore only)
       const usernameRegex = /^[a-zA-Z0-9_]+$/;
-      if (!usernameRegex.test(username.trim())) {
+      if (!usernameRegex.test(formData.get('username').trim())) {
         errors.username = 'Username can only contain letters, numbers, and underscores';
       }
     }
     
     // Validate names (not required but if provided, they should be valid)
-    const firstName = formData.get('first_name');
-    const lastName = formData.get('last_name');
-    
-    if (firstName && firstName.trim().length > 50) {
+    if (formData.get('first_name') && formData.get('first_name').trim().length > 50) {
       errors.first_name = 'First name must be no more than 50 characters';
     }
     
-    if (lastName && lastName.trim().length > 50) {
+    if (formData.get('last_name') && formData.get('last_name').trim().length > 50) {
       errors.last_name = 'Last name must be no more than 50 characters';
     }
     
     // Validate email if provided
-    const email = formData.get('email');
-    if (email && email.trim() !== '') {
+    if (formData.get('email') && formData.get('email').trim() !== '') {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
+      if (!emailRegex.test(formData.get('email').trim())) {
         errors.email = 'Please enter a valid email address';
       }
     }
     
     // Validate phone if provided
-    const phone = formData.get('phone');
-    if (phone && phone.trim() !== '') {
+    if (formData.get('phone') && formData.get('phone').trim() !== '') {
       // Allow common phone formats
       const phoneRegex = /^(09\d{2}[-\s]?\d{3}[-\s]?\d{4}|\+639\d{9})$/;
-      if (!phoneRegex.test(phone.trim())) {
+      if (!phoneRegex.test(formData.get('phone').trim())) {
         errors.phone = 'Invalid phone number format. Use 09xx xxx xxxx or +639xxxxxxxxx';
       }
     }

@@ -13,6 +13,7 @@ const iconMap = {
   'Inventory': Truck,
   'Deliveries': Truck,
   'Users': Users,
+  'Customers': Users,
   'Activity Log': Clock,
   'Order History': FileText,
   'Notifications': Bell,

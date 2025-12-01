@@ -33,6 +33,9 @@ class Municipality(models.Model):
 class Barangay(models.Model):
     municipality = models.ForeignKey(Municipality, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
+    
+    class Meta:
+        unique_together = ('municipality', 'name')
 
     def __str__(self):
         return f"{self.name}, {self.municipality.name}"

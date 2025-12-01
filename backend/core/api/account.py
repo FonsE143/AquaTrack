@@ -43,18 +43,6 @@ class RegisterView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if not first_name:
-            return Response(
-                {'error': 'First name is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if not last_name:
-            return Response(
-                {'error': 'Last name is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
         # Validate username
         if len(username) < 3 or len(username) > 30:
             return Response(
@@ -69,10 +57,16 @@ class RegisterView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Validate names
-        if len(first_name) > 50 or len(last_name) > 50:
+        # Validate names (not required but if provided, they should be valid)
+        if first_name and len(first_name) > 50:
             return Response(
-                {'error': 'Names must be no more than 50 characters'}, 
+                {'error': 'First name must be no more than 50 characters'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if last_name and len(last_name) > 50:
+            return Response(
+                {'error': 'Last name must be no more than 50 characters'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         

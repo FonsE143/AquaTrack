@@ -30,6 +30,7 @@ export default function AdminProducts() {
     { label: 'Route', href: '/admin/route' },
     { label: 'Deployment', href: '/admin/deployment' },
     { label: 'Employees', href: '/admin/employees' },
+    { label: 'Customers', href: '/admin/customers' },
     { label: 'Products', href: '/admin/products', active: true, adminOnly: true },
     { label: 'Activity Logs', href: '/admin/activity-logs' },
   ];
