@@ -11,12 +11,12 @@ import { createStyledAlert } from '../../utils/alertHelper'
 export default function AdminDashboard() {
   const items = [
     { label: 'Dashboard', href: '/admin/dashboard', active: true },
-    { label: 'Route', href: '/admin/route' },
-    { label: 'Deployment', href: '/admin/deployment' },
-    { label: 'Employees', href: '/admin/employees' },
-    { label: 'Customers', href: '/admin/customers' },
+    { label: 'Route', href: '/admin/route' , adminOnly: true },
+    { label: 'Deployment', href: '/admin/deployment' , adminOnly: true },
+    { label: 'Employees', href: '/admin/employees', adminOnly: true  },
+    { label: 'Customers', href: '/admin/customers', adminOnly: true  },
     { label: 'Products', href: '/admin/products', adminOnly: true },
-    { label: 'Activity Logs', href: '/admin/activity-logs' },
+    { label: 'Activity Logs', href: '/admin/activity-logs', adminOnly: true  },
   ]
 
   const [showWalkInOrder, setShowWalkInOrder] = useState(false)

@@ -24,6 +24,15 @@ const Profile = () => {
     address_details: '', // For house number/street
   })
   
+  // State for password change modal
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({
+    old_password: '',
+    new_password: '',
+    confirm_password: ''
+  })
+  const [passwordMessage, setPasswordMessage] = useState(null)
+  
   const [municipalities, setMunicipalities] = useState([])
   const [barangays, setBarangays] = useState([])
 
@@ -38,8 +47,9 @@ const Profile = () => {
           { label: 'Route', href: '/admin/route' },
           { label: 'Deployment', href: '/admin/deployment' },
           { label: 'Employees', href: '/admin/employees' },
+          { label: 'Customers', href: '/admin/customers' },
+          { label: 'Products', href: '/admin/products', adminOnly: true },
           { label: 'Activity Logs', href: '/admin/activity-logs' },
-          { label: 'Profile', href: '/profile', active: true },
         ]
       case 'staff':
         return [
@@ -61,7 +71,7 @@ const Profile = () => {
     }
   }, [data])
 
-  // Fetch municipalities
+  // Fetch municipalities on component mount
   useEffect(() => {
     const fetchMunicipalities = async () => {
       try {
@@ -69,7 +79,6 @@ const Profile = () => {
         // Handle both paginated and non-paginated responses
         const data = Array.isArray(response.data) ? response.data : 
                     (response.data.results && Array.isArray(response.data.results) ? response.data.results : [])
-        console.log('Municipalities fetched:', data);
         setMunicipalities(data)
       } catch (err) {
         console.error('Failed to fetch municipalities:', err)
@@ -79,7 +88,7 @@ const Profile = () => {
     fetchMunicipalities()
   }, [])
 
-  // Fetch barangays when municipality changes (for user interactions)
+  // Fetch barangays when municipality changes
   useEffect(() => {
     const fetchBarangays = async () => {
       if (form.municipality) {
@@ -138,18 +147,16 @@ const Profile = () => {
           try {
             const response = await api.get(`/barangays/?municipality=${data.address.municipality}`)
             // Handle both paginated and non-paginated responses
-            const barangayData = Array.isArray(response.data) ? response.data : 
-                                (response.data.results && Array.isArray(response.data.results) ? response.data.results : [])
-            console.log('Received barangays:', barangayData);
-            console.log('Setting barangay to:', newForm.barangay);
-            setBarangays(barangayData)
+            const data = Array.isArray(response.data) ? response.data : 
+                        (response.data.results && Array.isArray(response.data.results) ? response.data.results : [])
+            console.log('Received barangays for existing municipality:', data);
+            setBarangays(data)
           } catch (err) {
-            console.error('Failed to fetch barangays:', err)
+            console.error('Failed to fetch barangays for existing municipality:', err)
             setBarangays([])
           }
         }
-        
-        fetchBarangaysForMunicipality();
+        fetchBarangaysForMunicipality()
       }
     }
   }, [data])
@@ -158,6 +165,11 @@ const Profile = () => {
     const { name, value } = e.target
     console.log('Form field changed:', name, value, typeof value);
     setForm((prev) => ({ ...prev, [name]: value }))
+  }
+  
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target
+    setPasswordForm((prev) => ({ ...prev, [name]: value }))
   }
 
   const mutation = useMutation({
@@ -184,30 +196,67 @@ const Profile = () => {
       // Handle different types of error responses
       if (err.response?.data) {
         // Check for DRF validation errors
-        if (err.response.data.detail) {
-          msg = err.response.data.detail;
-        } else if (err.response.data.error) {
-          msg = err.response.data.error;
+        if (typeof err.response.data === 'object' && !Array.isArray(err.response.data)) {
+          // Field-specific errors
+          const fieldErrors = [];
+          Object.keys(err.response.data).forEach(field => {
+            const fieldError = err.response.data[field];
+            if (Array.isArray(fieldError)) {
+              fieldErrors.push(`${field}: ${fieldError.join(', ')}`);
+            } else if (typeof fieldError === 'string') {
+              fieldErrors.push(`${field}: ${fieldError}`);
+            }
+          });
+          
+          if (fieldErrors.length > 0) {
+            msg = fieldErrors.join('; ');
+          } else {
+            // General error message
+            msg = err.response.data.detail || 'Failed to update profile.';
+          }
         } else if (typeof err.response.data === 'string') {
           msg = err.response.data;
-        } else if (typeof err.response.data === 'object') {
-          // Handle field-specific errors
-          const errorFields = Object.keys(err.response.data);
-          if (errorFields.length > 0) {
-            const firstField = errorFields[0];
-            const fieldErrors = err.response.data[firstField];
-            if (Array.isArray(fieldErrors) && fieldErrors.length > 0) {
-              msg = `${firstField}: ${fieldErrors[0]}`;
-            } else {
-              msg = `${firstField}: ${fieldErrors}`;
-            }
-          }
         }
-      } else if (err.message) {
-        msg = err.message;
       }
       
       setMessage({ type: 'error', text: msg });
+    },
+  })
+  
+  // Mutation for password change
+  const passwordMutation = useMutation({
+    mutationFn: async (payload) => (await api.post('/account/change-password/', payload)).data,
+    onSuccess: () => {
+      setPasswordMessage({ type: 'success', text: 'Password changed successfully.' })
+      // Clear form
+      setPasswordForm({
+        old_password: '',
+        new_password: '',
+        confirm_password: ''
+      })
+      // Close modal after delay
+      setTimeout(() => {
+        setShowPasswordModal(false)
+        setPasswordMessage(null)
+      }, 2000)
+    },
+    onError: (err) => {
+      console.error('Password change error:', err);
+      let msg = 'Failed to change password.';
+      
+      if (err.response?.data) {
+        if (typeof err.response.data === 'object' && !Array.isArray(err.response.data)) {
+          if (err.response.data.error) {
+            msg = err.response.data.error;
+          } else if (err.response.data.detail) {
+            msg = err.response.data.detail;
+          }
+        } else if (typeof err.response.data === 'string') {
+          msg = err.response.data;
+        }
+      }
+      
+      setPasswordMessage({ type: 'error', text: msg });
     },
   })
 
@@ -250,6 +299,37 @@ const Profile = () => {
     
     console.log('Sending profile update payload:', payload);
     mutation.mutate(payload)
+  }
+  
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault()
+    
+    // Validation
+    if (!passwordForm.old_password) {
+      setPasswordMessage({ type: 'error', text: 'Current password is required.' })
+      return
+    }
+    
+    if (!passwordForm.new_password) {
+      setPasswordMessage({ type: 'error', text: 'New password is required.' })
+      return
+    }
+    
+    if (passwordForm.new_password.length < 8) {
+      setPasswordMessage({ type: 'error', text: 'New password must be at least 8 characters long.' })
+      return
+    }
+    
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      setPasswordMessage({ type: 'error', text: 'New password and confirmation do not match.' })
+      return
+    }
+    
+    // Send request
+    passwordMutation.mutate({
+      old_password: passwordForm.old_password,
+      new_password: passwordForm.new_password
+    })
   }
 
   const getAddressDisplay = () => {
@@ -301,7 +381,7 @@ const Profile = () => {
                 ></button>
               </div>
             )}
-
+            
             <div className="card border-0 shadow-sm">
               <div className="card-body">
                 <form onSubmit={handleSubmit}>
@@ -365,49 +445,50 @@ const Profile = () => {
                             className="btn btn-outline-primary btn-sm"
                             onClick={() => setIsEditingAddress(!isEditingAddress)}
                           >
-                            {isEditingAddress ? 'Cancel Edit' : 'Edit Address'}
+                            {isEditingAddress ? 'Cancel' : 'Edit Address'}
                           </button>
                         </div>
                         
-                        {/* Address Edit Form */}
                         {isEditingAddress && (
-                          <div className="mt-3 pt-3 border-top">
+                          <div className="mt-3">
                             <div className="row g-3">
-                              <div className="col-md-6">
-                                <label className="form-label fw-medium">Municipality</label>
+                              <div className="col-12 col-md-6">
+                                <label className="form-label">Municipality *</label>
                                 <select
                                   name="municipality"
                                   value={form.municipality}
                                   onChange={handleChange}
-                                  className="form-control"
+                                  className="form-select"
+                                  required={form.barangay || form.address_details}
                                 >
                                   <option value="">Select Municipality</option>
-                                  {Array.isArray(municipalities) && municipalities.map((municipality) => (
-                                    <option key={municipality.id} value={String(municipality.id)}>
+                                  {municipalities.map((municipality) => (
+                                    <option key={municipality.id} value={municipality.id}>
                                       {municipality.name}
                                     </option>
                                   ))}
                                 </select>
                               </div>
-                              <div className="col-md-6">
-                                <label className="form-label fw-medium">Barangay</label>
+                              <div className="col-12 col-md-6">
+                                <label className="form-label">Barangay *</label>
                                 <select
                                   name="barangay"
                                   value={form.barangay}
                                   onChange={handleChange}
-                                  className="form-control"
+                                  className="form-select"
                                   disabled={!form.municipality}
+                                  required={form.municipality || form.address_details}
                                 >
                                   <option value="">Select Barangay</option>
-                                  {Array.isArray(barangays) && barangays.map((barangay) => (
-                                    <option key={barangay.id} value={String(barangay.id)}>
+                                  {barangays.map((barangay) => (
+                                    <option key={barangay.id} value={barangay.id}>
                                       {barangay.name}
                                     </option>
                                   ))}
                                 </select>
                               </div>
                               <div className="col-12">
-                                <label className="form-label fw-medium">House Number / Lot Number / Street *</label>
+                                <label className="form-label">House Number / Lot Number / Street *</label>
                                 <input
                                   type="text"
                                   name="address_details"
@@ -425,7 +506,14 @@ const Profile = () => {
                     </div>
                   </div>
                   
-                  <div className="d-flex justify-content-end mt-4">
+                  <div className="d-flex justify-content-end mt-4 gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary px-4"
+                      onClick={() => setShowPasswordModal(true)}
+                    >
+                      Change Password
+                    </button>
                     <button
                       type="submit"
                       disabled={mutation.isLoading}
@@ -447,6 +535,123 @@ const Profile = () => {
           </div>
         </div>
       </div>
+      
+      {/* Password Change Modal */}
+      <div className={`modal fade ${showPasswordModal ? 'show' : ''}`} 
+           style={{ display: showPasswordModal ? 'block' : 'none' }} 
+           tabIndex="-1" 
+           aria-labelledby="passwordModalLabel" 
+           aria-hidden={!showPasswordModal}>
+        <div className="modal-dialog">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id="passwordModalLabel">Change Password</h5>
+              <button 
+                type="button" 
+                className="btn-close" 
+                onClick={() => {
+                  setShowPasswordModal(false)
+                  setPasswordMessage(null)
+                  setPasswordForm({
+                    old_password: '',
+                    new_password: '',
+                    confirm_password: ''
+                  })
+                }}
+              ></button>
+            </div>
+            <div className="modal-body">
+              {passwordMessage && (
+                <div className={`alert ${passwordMessage.type === 'error' ? 'alert-danger' : 'alert-success'} alert-dismissible fade show`} role="alert">
+                  {passwordMessage.text}
+                  <button 
+                    type="button" 
+                    className="btn-close" 
+                    data-bs-dismiss="alert" 
+                    aria-label="Close"
+                    onClick={() => setPasswordMessage(null)}
+                  ></button>
+                </div>
+              )}
+              
+              <form onSubmit={handlePasswordSubmit}>
+                <div className="mb-3">
+                  <label className="form-label">Current Password</label>
+                  <input
+                    type="password"
+                    name="old_password"
+                    value={passwordForm.old_password}
+                    onChange={handlePasswordChange}
+                    className="form-control"
+                    required
+                  />
+                </div>
+                
+                <div className="mb-3">
+                  <label className="form-label">New Password</label>
+                  <input
+                    type="password"
+                    name="new_password"
+                    value={passwordForm.new_password}
+                    onChange={handlePasswordChange}
+                    className="form-control"
+                    required
+                    minLength={8}
+                  />
+                  <div className="form-text">Must be at least 8 characters long.</div>
+                </div>
+                
+                <div className="mb-3">
+                  <label className="form-label">Confirm New Password</label>
+                  <input
+                    type="password"
+                    name="confirm_password"
+                    value={passwordForm.confirm_password}
+                    onChange={handlePasswordChange}
+                    className="form-control"
+                    required
+                  />
+                </div>
+                
+                <div className="d-flex justify-content-end gap-2">
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setShowPasswordModal(false)
+                      setPasswordMessage(null)
+                      setPasswordForm({
+                        old_password: '',
+                        new_password: '',
+                        confirm_password: ''
+                      })
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary"
+                    disabled={passwordMutation.isLoading}
+                  >
+                    {passwordMutation.isLoading ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Changing...
+                      </>
+                    ) : (
+                      'Change Password'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Modal backdrop */}
+      {showPasswordModal && <div className="modal-backdrop fade show"></div>}
     </AppShell>
   )
 }

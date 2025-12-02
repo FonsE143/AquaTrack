@@ -15,6 +15,10 @@ from .serializers import (
 )
 from .permissions import IsRole
 
+
+
+
+
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all().order_by('name')
     serializer_class = ProductSerializer
@@ -452,7 +456,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
 
 class StaffViewSet(viewsets.ModelViewSet):
-    queryset = Profile.objects.filter(role='staff')
+    queryset = Profile.objects.select_related('user').filter(role='staff')
     serializer_class = ProfileSerializer
     permission_classes = [IsAuthenticated]
     
@@ -465,7 +469,7 @@ class StaffViewSet(viewsets.ModelViewSet):
         # For creation, we don't want to filter by role
         if self.action == 'create':
             return Profile.objects.all()
-        return super().get_queryset()
+        return Profile.objects.select_related('user').filter(role='staff')
     
     def create(self, request, *args, **kwargs):
         print(f"DEBUG: StaffViewSet.create called with request.data: {request.data}")
@@ -513,7 +517,7 @@ class StaffViewSet(viewsets.ModelViewSet):
 
 
 class DriverViewSet(viewsets.ModelViewSet):
-    queryset = Profile.objects.filter(role='driver')
+    queryset = Profile.objects.select_related('user').filter(role='driver')
     serializer_class = ProfileSerializer
     permission_classes = [IsAuthenticated]
     
@@ -532,7 +536,7 @@ class DriverViewSet(viewsets.ModelViewSet):
         # For creation, we don't want to filter by role
         if self.action == 'create':
             return Profile.objects.all()
-        return super().get_queryset()
+        return Profile.objects.select_related('user').filter(role='driver')
     
     def create(self, request, *args, **kwargs):
         # Prepare data for serializer - don't modify the data directly

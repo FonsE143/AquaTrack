@@ -79,7 +79,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         model = Profile
         fields = [
             'id','username','role',
-            'first_name','last_name','middle_name','email',
+            'first_name','last_name','email',
             'phone','address','address_detail',
             'municipality','barangay','address_details'
         ]
@@ -87,7 +87,6 @@ class ProfileSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'first_name': {'required': False, 'allow_blank': True},
             'last_name': {'required': False, 'allow_blank': True},
-            'middle_name': {'required': False, 'allow_blank': True},
             'phone': {'required': False, 'allow_blank': True},
             'address': {'required': False, 'allow_null': True},
         }
@@ -150,6 +149,7 @@ class ProfileSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({'email': 'Invalid email format.'})
             instance.user.email = email
             user_fields_to_update.append('email')
+            print(f"DEBUG: Updated email {email} for user {instance.user.username}")
         
         # Handle phone validation
         phone = validated_data.get('phone')
@@ -222,7 +222,8 @@ class ProfileSerializer(serializers.ModelSerializer):
         
         # Extract user-related fields
         username = validated_data.get('username')
-        email = validated_data.get('email', '')
+        # For fields with source='user.email', we need to access them differently
+        email = validated_data.get('user', {}).get('email', '') if 'user' in validated_data else validated_data.get('email', '')
         first_name = validated_data.get('first_name', '')
         last_name = validated_data.get('last_name', '')
         phone = validated_data.get('phone', '')
@@ -231,6 +232,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         role = self.context.get('role', 'customer')
         
         print(f"DEBUG: Extracted username: '{username}' (type: {type(username)})")
+        print(f"DEBUG: Extracted email: '{email}' (type: {type(email)})")
         
         # Validate that username is provided
         if not username:
@@ -262,6 +264,7 @@ class ProfileSerializer(serializers.ModelSerializer):
                 
                 try:
                     user = User.objects.create_user(password=password, **user_data)
+                    print(f"DEBUG: Created user {user.username} with email {user.email}")
                 except Exception as e:
                     # Provide more specific error information for user creation
                     error_message = str(e)
@@ -281,7 +284,15 @@ class ProfileSerializer(serializers.ModelSerializer):
         """Helper method to update existing profile or create new one"""
         first_name = validated_data.get('first_name', '')
         last_name = validated_data.get('last_name', '')
+        # For fields with source='user.email', we need to access them differently
+        email = validated_data.get('user', {}).get('email', '') if 'user' in validated_data else validated_data.get('email', '')
         phone = validated_data.get('phone', '')
+        
+        # Update user email if provided
+        if email is not None:
+            user.email = email
+            user.save(update_fields=['email'])
+            print(f"DEBUG: Saved email {email} to user {user.username}")
         
         # Get existing profile or create new one
         profile, created = Profile.objects.get_or_create(
@@ -302,6 +313,11 @@ class ProfileSerializer(serializers.ModelSerializer):
                 profile.first_name = first_name
                 profile.last_name = last_name
                 profile.phone = phone
+                
+                # Update user email if provided
+                if email is not None:
+                    user.email = email
+                    user.save(update_fields=['email'])
                 
                 # Handle address if provided
                 municipality_id = validated_data.get('municipality')
