@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useState } from 'react'
-import { LayoutDashboard, Package, Truck, Users, Clock, FileText, User, Settings, Bell, MapPin, UserCheck, FileClock, PlusCircle, ShoppingCart } from 'lucide-react'
+import { LayoutDashboard, Package, Truck, Users, Clock, FileText, User, Settings, Bell, MapPin, UserCheck, FileClock, PlusCircle, ShoppingCart, History } from 'lucide-react'
 
 const iconMap = {
   'Dashboard': LayoutDashboard,
   'Route': MapPin,
   'Deployment': Truck,
+  'Deployment History': History,
   'Employees': Users,
   'Products': ShoppingCart,
   'Activity Logs': FileClock,

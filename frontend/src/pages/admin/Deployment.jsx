@@ -6,6 +6,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useState } from 'react'
 import Modal from '../../components/Modal'
+import { Link } from 'react-router-dom'
 
 export default function AdminDeployment() {
   const items = [
@@ -29,6 +30,7 @@ export default function AdminDeployment() {
   })
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'info' })
   const [isEditing, setIsEditing] = useState(false)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
   // Fetch deployment data
   const { data: deployments, isLoading: deploymentsLoading, error } = useQuery({
@@ -117,6 +119,7 @@ export default function AdminDeployment() {
         stock: ''
       })
       setIsEditing(false)
+      setIsCreateModalOpen(false)
     },
     onError: (error) => {
       console.error('Deployment error:', error);
@@ -173,6 +176,30 @@ export default function AdminDeployment() {
         isOpen: true,
         title: 'Error',
         message: 'Failed to delete deployment: ' + (error.response?.data?.detail || error.message),
+        type: 'error'
+      })
+    }
+  })
+  
+  // Mutation for returning deployment
+  const returnDeploymentMutation = useMutation({
+    mutationFn: async (deploymentId) => {
+      return api.post(`/deployments/${deploymentId}/return/`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['deployments'])
+      setModal({
+        isOpen: true,
+        title: 'Success',
+        message: 'Deployment marked as returned successfully!',
+        type: 'success'
+      })
+    },
+    onError: (error) => {
+      setModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Failed to return deployment: ' + (error.response?.data?.detail || error.message),
         type: 'error'
       })
     }
@@ -245,12 +272,20 @@ export default function AdminDeployment() {
       stock: deployment.stock.toString()
     })
     setIsEditing(true)
+    setIsCreateModalOpen(true)
   }
 
   // Handle delete deployment
   const handleDeleteDeployment = (deploymentId) => {
     if (confirm('Are you sure you want to delete this deployment?')) {
       deleteDeploymentMutation.mutate(deploymentId)
+    }
+  }
+  
+  // Handle return deployment
+  const handleReturnDeployment = (deploymentId) => {
+    if (confirm('Are you sure you want to mark this deployment as returned?')) {
+      returnDeploymentMutation.mutate(deploymentId)
     }
   }
 
@@ -265,10 +300,26 @@ export default function AdminDeployment() {
       stock: ''
     })
     setIsEditing(false)
+    setIsCreateModalOpen(false)
   }
 
   const closeModal = () => {
     setModal(prev => ({ ...prev, isOpen: false }))
+  }
+
+  // Handle opening the create deployment modal
+  const handleOpenCreateModal = () => {
+    // Reset form data when opening for creation
+    setFormData({
+      id: null,
+      driver: '',
+      vehicle: '',
+      route: '',
+      product: '',
+      stock: ''
+    })
+    setIsEditing(false)
+    setIsCreateModalOpen(true)
   }
 
   return (
@@ -283,11 +334,18 @@ export default function AdminDeployment() {
             </div>
             <p className="text-muted mb-0">Manage deployments</p>
           </div>
+          <button 
+            className="btn btn-success"
+            onClick={handleOpenCreateModal}
+          >
+            <Plus size={16} className="me-1" />
+            Create Deployment
+          </button>
         </div>
 
         <div className="row g-4">
           {/* Deployments List */}
-          <div className="col-12 col-lg-8">
+          <div className="col-12">
             <div className="card border-0 shadow-sm h-100">
               <div className="card-header bg-white border-0 py-3">
                 <div className="d-flex align-items-center gap-2">
@@ -349,6 +407,14 @@ export default function AdminDeployment() {
                                 <Edit size={16} />
                               </button>
                               <button 
+                                className="btn btn-warning btn-sm"
+                                onClick={() => handleReturnDeployment(deployment.id)}
+                                title="Return deployment"
+                                disabled={returnDeploymentMutation.isLoading}
+                              >
+                                <i className="bi bi-arrow-return-left"></i>
+                              </button>
+                              <button 
                                 className="btn btn-danger btn-sm"
                                 onClick={() => handleDeleteDeployment(deployment.id)}
                                 title="Delete deployment"
@@ -373,146 +439,129 @@ export default function AdminDeployment() {
               </div>
             </div>
           </div>
-
-          {/* Create Deployment Form */}
-          <div className="col-12 col-lg-4">
-            <div className="card border-0 shadow-sm">
-              <div className="card-header bg-white border-0 py-3">
-                <div className="d-flex align-items-center gap-2">
-                  {isEditing ? (
-                    <>
-                      <Edit className="text-warning" size={20} />
-                      <h5 className="mb-0">Edit Deployment</h5>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="text-success" size={20} />
-                      <h5 className="mb-0">Create Deployment</h5>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="card-body">
-                <form onSubmit={handleDeploymentSubmit}>
-                  <div className="mb-3">
-                    <label className="form-label">Driver</label>
-                    <select
-                      className="form-select"
-                      name="driver"
-                      value={formData.driver}
-                      onChange={handleInputChange}
-                      required
-                    >
-                      <option value="">Select Driver</option>
-                      {drivers && drivers.map(driver => (
-                        <option key={driver.id} value={driver.id}>
-                          {driver.first_name} {driver.last_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label">Vehicle</label>
-                    <select
-                      className="form-select"
-                      name="vehicle"
-                      value={formData.vehicle}
-                      onChange={handleInputChange}
-                      required
-                    >
-                      <option value="">Select Vehicle</option>
-                      {vehicles && vehicles.map(vehicle => (
-                        <option key={vehicle.id} value={vehicle.id}>
-                          {vehicle.name} ({vehicle.plate_number}) - Limit: {vehicle.stock_limit}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label">Route</label>
-                    <select
-                      className="form-select"
-                      name="route"
-                      value={formData.route}
-                      onChange={handleInputChange}
-                      required
-                    >
-                      <option value="">Select Route</option>
-                      {routes && routes.map(route => (
-                        <option key={route.id} value={route.id}>
-                          Route {route.route_number} - {route.municipality_names}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label">Product</label>
-                    <select
-                      className="form-select"
-                      name="product"
-                      value={formData.product}
-                      onChange={handleInputChange}
-                      required
-                    >
-                      <option value="">Select Product</option>
-                      {products && products.map(product => (
-                        <option key={product.id} value={product.id}>
-                          {product.name} - ₱{product.price}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label">Stock Quantity</label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      name="stock"
-                      value={formData.stock}
-                      onChange={handleInputChange}
-                      min="1"
-                      required
-                    />
-                  </div>
-
-                  <div className="d-flex gap-2">
-                    <button
-                      type="submit"
-                      className={`btn ${isEditing ? 'btn-warning' : 'btn-success'} w-100`}
-                      disabled={createUpdateDeploymentMutation.isLoading}
-                    >
-                      {createUpdateDeploymentMutation.isLoading ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                          {isEditing ? 'Updating...' : 'Creating...'}
-                        </>
-                      ) : (
-                        <>
-                          {isEditing ? <Edit size={16} /> : <Plus size={16} />}
-                          {isEditing ? 'Update Deployment' : 'Create Deployment'}
-                        </>
-                      )}
-                    </button>
-                    {isEditing && (
-                      <button 
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={handleCancelEdit}
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
+      
+      {/* Create/Edit Deployment Modal */}
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={handleCancelEdit}
+        title={isEditing ? "Edit Deployment" : "Create Deployment"}
+        type={isEditing ? "info" : "success"}  // Green header for create, blue for edit
+      >        <form onSubmit={handleDeploymentSubmit}>
+          <div className="mb-3">
+            <label className="form-label">Driver</label>
+            <select
+              className="form-select"
+              name="driver"
+              value={formData.driver}
+              onChange={handleInputChange}
+              required
+            >
+              <option value="">Select Driver</option>
+              {drivers && drivers.map(driver => (
+                <option key={driver.id} value={driver.id}>
+                  {driver.first_name} {driver.last_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mb-3">
+            <label className="form-label">Vehicle</label>
+            <select
+              className="form-select"
+              name="vehicle"
+              value={formData.vehicle}
+              onChange={handleInputChange}
+              required
+            >
+              <option value="">Select Vehicle</option>
+              {vehicles && vehicles.map(vehicle => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  {vehicle.name} ({vehicle.plate_number}) - Limit: {vehicle.stock_limit}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mb-3">
+            <label className="form-label">Route</label>
+            <select
+              className="form-select"
+              name="route"
+              value={formData.route}
+              onChange={handleInputChange}
+              required
+            >
+              <option value="">Select Route</option>
+              {routes && routes.map(route => (
+                <option key={route.id} value={route.id}>
+                  Route {route.route_number} - {route.municipality_names}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mb-3">
+            <label className="form-label">Product</label>
+            <select
+              className="form-select"
+              name="product"
+              value={formData.product}
+              onChange={handleInputChange}
+              required
+            >
+              <option value="">Select Product</option>
+              {products && products.map(product => (
+                <option key={product.id} value={product.id}>
+                  {product.name} - ₱{product.price}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mb-3">
+            <label className="form-label">Stock Quantity</label>
+            <input
+              type="number"
+              className="form-control"
+              name="stock"
+              value={formData.stock}
+              onChange={handleInputChange}
+              min="1"
+              required
+            />
+          </div>
+
+          <div className="d-flex gap-2">
+            <button
+              type="submit"
+              className={`btn ${isEditing ? 'btn-warning' : 'btn-success'} w-100`}
+              disabled={createUpdateDeploymentMutation.isLoading}
+            >
+              {createUpdateDeploymentMutation.isLoading ? (
+                <>
+                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  {isEditing ? 'Updating...' : 'Creating...'}
+                </>
+              ) : (
+                <>
+                  {isEditing ? <Edit size={16} /> : <Plus size={16} />}
+                  {isEditing ? 'Update Deployment' : 'Create Deployment'}
+                </>
+              )}
+            </button>
+            <button 
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleCancelEdit}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
       
       {/* Modal for alerts */}
       <Modal

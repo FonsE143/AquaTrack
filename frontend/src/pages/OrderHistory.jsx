@@ -16,6 +16,7 @@ export default function OrderHistoryPage(){
     { label:'Inventory', href:'/admin/inventory' },
     { label:'Users', href:'/admin/users' },
     { label:'Deployment', href:'/admin/deployment' },
+    { label: 'Deployment History', href: '/admin/deployment-history' },
     { label:'Employees', href:'/admin/employees' },
     { label:'Activity Log', href:'/admin/activity', adminOnly: true },
   ] : userRole === 'staff' ? [
@@ -23,6 +24,7 @@ export default function OrderHistoryPage(){
     { label:'Orders', href:'/staff/orders' },
     { label:'Order History', href:'/staff/order-history', active: true },
     { label:'Inventory', href:'/staff/inventory' },
+    { label: 'Deployment History', href: '/staff/deployment-history' },
   ] : [
     { label:'Dashboard', href:'/customer/dashboard' },
     { label:'Order History', href:'/customer/order-history', active: true },

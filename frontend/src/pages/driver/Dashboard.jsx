@@ -1,7 +1,7 @@
 // src/pages/driver/Dashboard.jsx
 import AppShell from '../../components/AppShell'
 import { Sidebar } from '../../components/Sidebar'
-import { Truck, AlertTriangle, Package, CheckCircle, MapPin, Play, X } from 'lucide-react'
+import { Truck, AlertTriangle, Package, CheckCircle, MapPin, Play, X, ArrowLeft } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { createStyledAlert, createStyledConfirm } from '../../utils/alertHelper'
@@ -44,10 +44,38 @@ export default function DriverDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['my-deliveries'])
+      queryClient.invalidateQueries(['my-deployment'])
       createStyledAlert('success', 'Delivery Updated', 'Delivery status updated successfully!')
     },
     onError: (error) => {
       createStyledAlert('error', 'Update Failed', 'Failed to update delivery status: ' + (error.response?.data?.detail || error.message))
+    }
+  })
+
+  // Mutation for returning deployment
+  const returnDeployment = useMutation({
+    mutationFn: async (returnedContainers) => {
+      if (!myDeployment) return;
+      
+      // Debug: Print the returned containers value
+      console.log('DEBUG: Returned containers value:', returnedContainers);
+      console.log('DEBUG: Returned containers type:', typeof returnedContainers);
+      
+      const payload = {};
+      if (returnedContainers !== null && returnedContainers !== undefined) {
+        payload.returned_containers = parseInt(returnedContainers);
+      }
+      
+      // Debug: Print the payload
+      console.log('DEBUG: Payload being sent:', payload);
+      
+      return api.post(`/deployments/${myDeployment.id}/return/`, payload)
+    },    onSuccess: () => {
+      queryClient.invalidateQueries(['my-deployment'])
+      createStyledAlert('success', 'Deployment Returned', 'Deployment marked as returned successfully!')
+    },
+    onError: (error) => {
+      createStyledAlert('error', 'Return Failed', 'Failed to return deployment: ' + (error.response?.data?.detail || error.message))
     }
   })
 
@@ -62,14 +90,23 @@ export default function DriverDashboard() {
 
   // Handle complete delivery
   const handleCompleteDelivery = (delivery) => {
+    // Calculate maximum allowed quantity (order quantity + free items)
+    const maxQuantity = (delivery.order_quantity || 0) + (delivery.order_free_items || 0);
+    
     createStyledConfirm(
       'Complete Delivery', 
-      'Mark this delivery as completed?',
+      `Mark this delivery as completed? Maximum allowed: ${maxQuantity}`,
       (deliveredQuantity) => {
         // Validate delivered quantity
         const qty = parseInt(deliveredQuantity);
         if (isNaN(qty) || qty <= 0) {
           createStyledAlert('error', 'Invalid Quantity', 'Please enter a valid quantity greater than 0');
+          return;
+        }
+        
+        // Check if quantity exceeds maximum allowed
+        if (qty > maxQuantity) {
+          createStyledAlert('error', 'Invalid Quantity', `You cannot deliver more than ${maxQuantity} containers for this order`);
           return;
         }
         
@@ -84,9 +121,10 @@ export default function DriverDashboard() {
       {
         inputLabel: 'Delivered Quantity',
         inputType: 'number',
-        inputPlaceholder: 'Enter quantity delivered',
+        inputPlaceholder: `Enter quantity delivered (max: ${maxQuantity})`,
         inputRequired: true,
-        inputValue: delivery.order_quantity
+        inputValue: delivery.order_quantity,
+        inputMax: maxQuantity
       }
     );
   }
@@ -100,6 +138,51 @@ export default function DriverDashboard() {
     )
   }
 
+  // Handle return deployment
+  const handleReturnDeployment = () => {
+    // Calculate the maximum containers that can be returned
+    // This should be the sum of order quantities and free items from all deliveries
+    let maxContainers = 0;
+    if (Array.isArray(deliveries)) {
+      deliveries.forEach(delivery => {
+        if (delivery.status === 'delivered') {
+          // Add the ordered quantity plus free items
+          const orderQuantity = delivery.order_quantity || 0;
+          const freeItems = delivery.order_free_items || 0;
+          maxContainers += orderQuantity + freeItems;
+        }
+      });
+    }
+    
+    // If no deliveries or no max containers, default to a reasonable number
+    const maxAllowed = maxContainers > 0 ? maxContainers : 100;
+    
+    createStyledConfirm(
+      'Return Deployment', 
+      `Are you sure you want to mark this deployment as returned? Maximum containers allowed: ${maxAllowed}`,
+      (returnedContainers) => {
+        // Validate the input
+        const containers = parseInt(returnedContainers);
+        if (isNaN(containers) || containers < 0) {
+          createStyledAlert('error', 'Invalid Input', 'Please enter a valid number of containers');
+          return;
+        }
+        if (containers > maxAllowed) {
+          createStyledAlert('error', 'Invalid Input', `You cannot return more than ${maxAllowed} containers`);
+          return;
+        }
+        returnDeployment.mutate(containers);
+      },
+      null,
+      {
+        inputLabel: 'Returned Containers',
+        inputType: 'number',
+        inputPlaceholder: `Enter number of returned containers (max: ${maxAllowed})`,
+        inputHelpText: `Please enter the number of containers being returned (maximum: ${maxAllowed})`,
+        inputRequired: true
+      }
+    )
+  }
   // Get today's deliveries
   const todaysDeliveries = Array.isArray(deliveries) 
     ? deliveries.filter(d => {
@@ -190,11 +273,20 @@ export default function DriverDashboard() {
             {/* Route Table - Municipality and Barangays */}
             <div className="col-12 col-md-6">
               <div className="card border-0 shadow-sm h-100">
-                <div className="card-header bg-white border-0 py-3">
+                <div className="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
                   <div className="d-flex align-items-center gap-2">
                     <MapPin className="text-info" size={20} />
                     <h5 className="mb-0">Route Information</h5>
                   </div>
+                  {/* Return Deployment Button */}
+                  <button 
+                    className="btn btn-warning btn-sm d-flex align-items-center gap-1"
+                    onClick={handleReturnDeployment}
+                    disabled={returnDeployment.isLoading}
+                  >
+                    <ArrowLeft size={14} />
+                    <span className="d-none d-md-inline">Return</span>
+                  </button>
                 </div>
                 <div className="card-body p-0">
                   {/* Desktop Table View */}
@@ -239,7 +331,7 @@ export default function DriverDashboard() {
                       <small className="text-muted">Municipality</small>
                       <div className="fw-medium">{myDeployment.municipality_names || 'N/A'}</div>
                     </div>
-                    <div className="mb-0">
+                    <div className="mb-3">
                       <small className="text-muted">Barangays</small>
                       <div>
                         {myDeployment.barangay_names ? (
@@ -255,6 +347,15 @@ export default function DriverDashboard() {
                         )}
                       </div>
                     </div>
+                    {/* Return Deployment Button for Mobile */}
+                    <button 
+                      className="btn btn-warning w-100 d-flex align-items-center justify-content-center gap-1"
+                      onClick={handleReturnDeployment}
+                      disabled={returnDeployment.isLoading}
+                    >
+                      <ArrowLeft size={14} />
+                      Return Deployment
+                    </button>
                   </div>
                 </div>
               </div>

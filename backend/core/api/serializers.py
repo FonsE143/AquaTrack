@@ -418,11 +418,12 @@ class DeploymentSerializer(serializers.ModelSerializer):
     barangay_names = serializers.SerializerMethodField(read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     deployment_id = serializers.IntegerField(read_only=True)
+    returned_containers = serializers.IntegerField(required=False, allow_null=True)
     
     class Meta:
         model = Deployment
         fields = '__all__'
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'returned_at']
         
     def get_municipality_names(self, obj):
         # Return comma-separated list of municipality names
@@ -566,6 +567,7 @@ class DeploymentSerializer(serializers.ModelSerializer):
         
         return representation
 
+
 class OrderSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_price = serializers.DecimalField(source='product.price', max_digits=10, decimal_places=2, read_only=True)
@@ -675,7 +677,7 @@ class DeliverySerializer(serializers.ModelSerializer):
         fields = [
             'id','order','order_id','order_product_name','order_product_price','order_quantity','order_free_items','order_total_quantity','order_total_amount','driver','driver_username','driver_first_name','driver_last_name','driver_phone','vehicle','vehicle_name','route','route_number','status','customer_first_name','customer_last_name','customer_address','customer_phone','delivered_quantity','delivered_at','created_at','updated_at'
         ]
-        read_only_fields = ['delivered_quantity','delivered_at','created_at','updated_at']
+        read_only_fields = ['delivered_at','created_at','updated_at']
     
     def validate_eta_minutes(self, value):
         if value < 0:

@@ -11,6 +11,7 @@ export default function AdminCustomer() {
     { label:'Dashboard', href:'/admin/dashboard' },
     { label:'Route', href:'/admin/route' },
     { label:'Deployment', href:'/admin/deployment' },
+     { label:'Deployment History', href: '/admin/deployment-history' , adminOnly: true },
     { label:'Employees', href:'/admin/employees' },
     { label:'Customers', href:'/admin/customers', active:true },
     { label:'Products', href:'/admin/products', adminOnly: true },

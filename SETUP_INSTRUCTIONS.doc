@@ -1,0 +1,276 @@
+Water Station Management System - Setup Instructions
+
+Table of Contents
+1. Prerequisites
+2. Cloning the Repository
+3. Backend Setup (Django)
+4. Frontend Setup (React with Vite)
+5. Running the Application
+6. Accessing the Application
+7. Environment Variables
+8. Troubleshooting Tips
+9. Production Deployment Notes
+
+---
+
+1. PREREQUISITES
+
+Before setting up the Water Station Management System, ensure you have the following installed on your system:
+
+• Python 3.x (preferably 3.8 or higher)
+• Node.js (preferably LTS version)
+• Git for version control
+• PostgreSQL database (optional, as the project can use SQLite for development)
+
+2. CLONING THE REPOSITORY
+
+Open your terminal/command prompt and run the following commands:
+
+Step 1: Navigate to your desired directory
+Example: cd C:\Projects (Windows) or cd ~/Projects (macOS/Linux)
+
+Step 2: Clone the repository
+Command: git clone https://github.com/FonsE143/AquaTrack.git
+
+Step 3: Navigate into the project directory
+Command: cd AquaTrack
+
+3. BACKEND SETUP (DJANGO)
+
+a. Create a Virtual Environment
+--------------------------------
+Step 1: Navigate to the backend directory
+Command: cd backend
+
+Step 2: Create virtual environment
+Windows:
+Command: python -m venv venv
+
+macOS/Linux:
+Command: python3 -m venv venv
+
+Step 3: Activate virtual environment
+Windows:
+Command: venv\Scripts\activate
+
+macOS/Linux:
+Command: source venv/bin/activate
+
+b. Install Python Dependencies
+------------------------------
+Step 1: Ensure you're in the backend directory (d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend)
+
+Step 2: Install dependencies
+Command: pip install -r requirements.txt
+
+Expected output: Successfully installed [package names]
+
+Note: If you encounter SSL certificate errors, try: pip install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org -r requirements.txt
+
+Step 3: Verify installation
+Command: pip list
+
+You should see packages like Django, djangorestframework, etc.
+
+c. Database Setup
+-----------------
+The project uses SQLite by default for development (db.sqlite3 file located at d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend\db.sqlite3). For production, configure PostgreSQL:
+
+Step 1: Install PostgreSQL from https://www.postgresql.org/download/
+
+Step 2: Create a database named 'water-station'
+
+Step 3: Update database configuration
+File path: d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend\waterstation\settings.py
+
+Locate the DATABASES section and update it to:
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'water-station',
+        'USER': 'postgres',
+        'PASSWORD': 'postpassword',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
+}
+
+d. Run Database Migrations
+--------------------------
+Step 1: Ensure you're in the backend directory (d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend)
+
+Step 2: Run migrations
+Command: python manage.py migrate
+
+Expected output: Operations to perform: Apply all migrations...
+
+Step 3: Verify database file
+Check that d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend\db.sqlite3 exists
+
+e. Create Default Users (Optional)
+----------------------------------
+Step 1: Ensure you're in the backend directory (d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend)
+
+Step 2: Run the command
+Command: python manage.py create_default_users
+
+Expected output: Successfully created default users
+
+Default credentials:
+- Admin: Username 'admin', Password 'adminpassword'
+- Staff: Username 'staff', Password 'staffpassword'
+- Driver: Username 'driver', Password 'driverpassword'
+- Customer: Username 'customer', Password 'customerpassword'
+
+f. Populate Sample Data (Optional)
+----------------------------------
+Step 1: Ensure you're in the backend directory (d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend)
+
+Step 2: Run the command
+Command: python manage.py populate_sample_data
+
+Expected output: Successfully populated sample data
+
+4. FRONTEND SETUP (REACT WITH VITE)
+
+a. Install Node Dependencies
+----------------------------
+Step 1: Navigate to the frontend directory
+Command: cd ../frontend
+(Directory path: d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\frontend)
+
+Step 2: Install dependencies
+Command: npm install
+
+Expected output: added [number] packages...
+
+Note: This may take several minutes depending on your internet connection
+
+Step 3: Verify installation
+Check that node_modules folder exists in d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\frontend
+
+5. RUNNING THE APPLICATION
+
+a. Start the Backend Server
+---------------------------
+Step 1: Navigate to the backend directory
+Command: cd d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend
+
+Step 2: Activate virtual environment (if not already activated)
+Windows:
+Command: venv\Scripts\activate
+
+macOS/Linux:
+Command: source venv/bin/activate
+
+Step 3: Start the Django development server
+Command: python manage.py runserver
+
+Expected output:
+Watching for file changes with StatReloader
+Performing system checks...
+
+System check identified no issues (0 silenced).
+[Date] - [Time]
+Django version [version], using settings 'waterstation.settings'
+Starting development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK (CTRL+C on macOS/Linux).
+
+Backend API available at: http://localhost:8000
+
+b. Start the Frontend Development Server
+----------------------------------------
+Step 1: Open a new terminal window/command prompt
+
+Step 2: Navigate to the frontend directory
+Command: cd d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\frontend
+
+Step 3: Start the Vite development server
+Command: npm run dev
+
+Expected output:
+  VITE v[version]  ready in [time] ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://[network-ip]:5173/
+
+Frontend available at: http://localhost:5173
+
+6. ACCESSING THE APPLICATION
+
+Step 1: Ensure both backend and frontend servers are running
+
+Step 2: Open your browser and go to http://localhost:5173
+
+Step 3: Login with default credentials (if you ran 'create_default_users'):
+   - Admin: Username 'admin', Password 'adminpassword'
+   - Staff: Username 'staff', Password 'staffpassword'
+   - Driver: Username 'driver', Password 'driverpassword'
+   - Customer: Username 'customer', Password 'customerpassword'
+
+7. ENVIRONMENT VARIABLES
+
+Step 1: Create a '.env' file
+File path: d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\frontend\.env
+
+Step 2: Add the following content:
+VITE_API_BASE_URL=http://localhost:8000
+
+Note: This tells the frontend where to find the backend API
+
+8. TROUBLESHOOTING TIPS
+
+• Port Conflicts:
+  Issue: "Error: That port is already in use."
+  Solution: Specify different ports
+  Backend: cd d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend && python manage.py runserver 8001
+  Frontend: cd d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\frontend && npm run dev -- --port 5174
+
+• Database Issues:
+  Issue: Migration errors or database corruption
+  Solution: Reset migrations (development only)
+  Command: cd d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend && python manage.py migrate core zero && python manage.py migrate
+
+• Dependency Issues:
+  Issue: "Module not found" or similar errors
+  Solution 1 - Backend:
+  Command: cd d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend && pip install --upgrade -r requirements.txt
+  
+  Solution 2 - Frontend:
+  Commands:
+  cd d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\frontend
+  rm -rf node_modules package-lock.json (Windows: rmdir /s node_modules && del package-lock.json)
+  npm install
+
+• Virtual Environment Issues:
+  Issue: "python is not recognized" or packages not found
+  Solution: Ensure virtual environment is activated
+  Windows: d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend\venv\Scripts\activate
+  macOS/Linux: source d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend\venv\bin\activate
+
+9. PRODUCTION DEPLOYMENT NOTES
+
+For production deployment, you should:
+
+1. Configure proper environment variables
+Create d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend\.env with:
+DEBUG=False
+SECRET_KEY=[your-secret-key]
+ALLOWED_HOSTS=[your-domain.com]
+
+2. Set up a production database (PostgreSQL recommended)
+Update d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend\waterstation\settings.py with production database credentials
+
+3. Use a production WSGI server like Gunicorn for Django
+Install: pip install gunicorn
+Run: cd d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\backend && gunicorn waterstation.wsgi:application
+
+4. Set up a reverse proxy (Nginx)
+Configure Nginx to serve static files and proxy requests to Django
+
+5. Configure SSL certificates
+Use Let's Encrypt or similar service for HTTPS
+
+6. Optimize frontend assets for production:
+   From frontend directory: cd d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\frontend && npm run build
+   Output will be in d:\pons\3rd yr\new shit\Project for SIA with Copi - Copy\water-station\frontend\dist

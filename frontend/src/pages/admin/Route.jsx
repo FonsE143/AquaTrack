@@ -1,7 +1,7 @@
 // src/pages/admin/Route.jsx
 import AppShell from '../../components/AppShell'
 import { Sidebar } from '../../components/Sidebar'
-import { Truck, MapPin, Plus, Trash2, Pencil } from 'lucide-react'
+import { Truck, MapPin, Plus, Trash2, Pencil, History } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useState } from 'react'
@@ -58,6 +58,7 @@ export default function AdminRoute() {
     { label: 'Dashboard', href: '/admin/dashboard' },
     { label: 'Route', href: '/admin/route', active: true },
     { label: 'Deployment', href: '/admin/deployment' },
+    { label: 'Deployment History', href: '/admin/deployment-history' },
     { label: 'Employees', href: '/admin/employees' },
     { label: 'Customers', href: '/admin/customers' },
     { label: 'Products', href: '/admin/products', adminOnly: true },

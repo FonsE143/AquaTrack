@@ -6,6 +6,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useState } from 'react'
 import Modal from '../../components/Modal'
+import { Link } from 'react-router-dom'
 
 export default function StaffDeployment() {
   const items = [
@@ -173,6 +174,30 @@ export default function StaffDeployment() {
       })
     }
   })
+  
+  // Mutation for returning deployment
+  const returnDeploymentMutation = useMutation({
+    mutationFn: async (deploymentId) => {
+      return api.post(`/deployments/${deploymentId}/return/`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['deployments'])
+      setModal({
+        isOpen: true,
+        title: 'Success',
+        message: 'Deployment marked as returned successfully!',
+        type: 'success'
+      })
+    },
+    onError: (error) => {
+      setModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Failed to return deployment: ' + (error.response?.data?.detail || error.message),
+        type: 'error'
+      })
+    }
+  })
 
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -249,6 +274,13 @@ export default function StaffDeployment() {
       deleteDeploymentMutation.mutate(deploymentId)
     }
   }
+  
+  // Handle return deployment
+  const handleReturnDeployment = (deploymentId) => {
+    if (confirm('Are you sure you want to mark this deployment as returned?')) {
+      returnDeploymentMutation.mutate(deploymentId)
+    }
+  }
 
   // Handle cancel edit
   const handleCancelEdit = () => {
@@ -279,6 +311,7 @@ export default function StaffDeployment() {
             </div>
             <p className="text-muted mb-0">Manage deployments</p>
           </div>
+
         </div>
 
         <div className="row g-4">
@@ -335,6 +368,14 @@ export default function StaffDeployment() {
                                 title="Edit deployment"
                               >
                                 <Edit size={16} />
+                              </button>
+                              <button 
+                                className="btn btn-warning btn-sm"
+                                onClick={() => handleReturnDeployment(deployment.id)}
+                                title="Return deployment"
+                                disabled={returnDeploymentMutation.isLoading}
+                              >
+                                <i className="bi bi-arrow-return-left"></i>
                               </button>
                               <button 
                                 className="btn btn-danger btn-sm"
@@ -396,6 +437,14 @@ export default function StaffDeployment() {
                                 title="Edit deployment"
                               >
                                 <Edit size={16} /> Edit
+                              </button>
+                              <button 
+                                className="btn btn-warning btn-sm flex-fill"
+                                onClick={() => handleReturnDeployment(deployment.id)}
+                                title="Return deployment"
+                                disabled={returnDeploymentMutation.isLoading}
+                              >
+                                <i className="bi bi-arrow-return-left"></i> Return
                               </button>
                               <button 
                                 className="btn btn-danger btn-sm flex-fill"

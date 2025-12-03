@@ -828,39 +828,13 @@ class DeliveryViewSet(viewsets.ModelViewSet):
                 print(f"Serializer errors: {serializer.errors}")
                 return Response(serializer.errors, status=400)
             
-            # Check if this is a delivery completion with delivered quantity
-            # Always check for delivered_quantity in validated_data, not just hasattr(delivery, '_delivered_quantity')
-            if serializer.validated_data.get('status') == 'delivered' and 'delivered_quantity' in serializer.validated_data:
-                delivered_quantity = serializer.validated_data.get('delivered_quantity')
-                print(f"Processing delivery completion with quantity: {delivered_quantity}")
-                
-                # Update deployment stock if driver has a deployment
-                if delivery.driver and delivery.order and delivery.order.product:
-                    try:
-                        from core.models import Deployment
-                        print(f"Looking for deployment for driver {delivery.driver.id} and product {delivery.order.product.id}")
-                        deployment = Deployment.objects.filter(driver=delivery.driver, product=delivery.order.product).first()
-                        if deployment:
-                            print(f"Found deployment with stock {deployment.stock}")
-                            if deployment.stock >= delivered_quantity:
-                                deployment.stock -= delivered_quantity
-                                deployment.save()
-                                print(f"Reduced deployment stock by {delivered_quantity}. New stock: {deployment.stock}")
-                            else:
-                                print(f"Insufficient stock in deployment. Available: {deployment.stock}, Needed: {delivered_quantity}")
-                                # Don't fail the delivery if stock is insufficient, just log it
-                        else:
-                            print(f"No deployment found for driver {delivery.driver.id} and product {delivery.order.product.id}")
-                            # Don't fail the delivery if no deployment is found, just log it
-                    except Exception as e:
-                        print(f"Error updating deployment stock: {e}")
-                        import traceback
-                        traceback.print_exc()
-                        # Don't fail the delivery if there's an error updating deployment stock, just log it
-            
+            # Perform the update first to get the new status and delivered_quantity
             print(f"About to perform update")
             self.perform_update(serializer)
             print(f"Update performed successfully")
+            
+            # Refresh the delivery instance to get updated values
+            delivery.refresh_from_db()
             
             return Response(serializer.data)
         except Exception as e:
@@ -902,39 +876,13 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             
             print(f"Serializer validated data: {serializer.validated_data}")
             
-            # Check if this is a delivery completion with delivered quantity
-            # Always check for delivered_quantity in validated_data, not just hasattr(delivery, '_delivered_quantity')
-            if serializer.validated_data.get('status') == 'delivered' and 'delivered_quantity' in serializer.validated_data:
-                delivered_quantity = serializer.validated_data.get('delivered_quantity')
-                print(f"Processing delivery completion with quantity: {delivered_quantity}")
-                
-                # Update deployment stock if driver has a deployment
-                if delivery.driver and delivery.order and delivery.order.product:
-                    try:
-                        from core.models import Deployment
-                        print(f"Looking for deployment for driver {delivery.driver.id} and product {delivery.order.product.id}")
-                        deployment = Deployment.objects.filter(driver=delivery.driver, product=delivery.order.product).first()
-                        if deployment:
-                            print(f"Found deployment with stock {deployment.stock}")
-                            if deployment.stock >= delivered_quantity:
-                                deployment.stock -= delivered_quantity
-                                deployment.save()
-                                print(f"Reduced deployment stock by {delivered_quantity}. New stock: {deployment.stock}")
-                            else:
-                                print(f"Insufficient stock in deployment. Available: {deployment.stock}, Needed: {delivered_quantity}")
-                                # Don't fail the delivery if stock is insufficient, just log it
-                        else:
-                            print(f"No deployment found for driver {delivery.driver.id} and product {delivery.order.product.id}")
-                            # Don't fail the delivery if no deployment is found, just log it
-                    except Exception as e:
-                        print(f"Error updating deployment stock: {e}")
-                        import traceback
-                        traceback.print_exc()
-                        # Don't fail the delivery if there's an error updating deployment stock, just log it
-            
+            # Perform the update first to get the new status and delivered_quantity
             print(f"About to perform update")
             self.perform_update(serializer)
             print(f"Update performed successfully")
+            
+            # Refresh the delivery instance to get updated values
+            delivery.refresh_from_db()
             
             return Response(serializer.data)
         except Exception as e:
@@ -1314,7 +1262,7 @@ class MeView(views.APIView):
         return Response(serializer.data)
 
 class DeploymentViewSet(viewsets.ModelViewSet):
-    queryset = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').prefetch_related('route__municipalities').all().order_by('-created_at')
+    queryset = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').prefetch_related('route__municipalities').filter(status='active').order_by('-created_at')
     serializer_class = DeploymentSerializer
     permission_classes = [IsAuthenticated]
     
@@ -1424,6 +1372,12 @@ class DeploymentViewSet(viewsets.ModelViewSet):
         # Save the deployment
         deployment = serializer.save()
         
+        # Automatically change status to completed when stock reaches zero
+        # This ensures deployments with zero stock appear in history
+        if deployment.stock == 0 and deployment.status == 'active':
+            deployment.status = 'completed'
+            deployment.save()
+        
         # Create activity log
         try:
             from core.models import ActivityLog
@@ -1431,7 +1385,8 @@ class DeploymentViewSet(viewsets.ModelViewSet):
             if user_profile:
                 meta_data = {
                     "deployment_id": getattr(deployment, 'id', None),
-                    "stock": getattr(deployment, 'stock', None)
+                    "stock": getattr(deployment, 'stock', None),
+                    "status": getattr(deployment, 'status', None)
                 }
                 
                 # Safely add related object IDs
@@ -1556,4 +1511,78 @@ class DeploymentViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         except Deployment.DoesNotExist:
             return Response({'error': 'No deployment found for this driver'}, status=status.HTTP_404_NOT_FOUND)
-
+    
+    @action(detail=True, methods=['post'], url_path='return')
+    def return_deployment(self, request, pk=None):
+        """Mark a deployment as returned"""
+        try:
+            deployment = self.get_object()
+            
+            # Debug: Print request data
+            print(f"DEBUG: Received request data: {request.data}")
+            
+            # Check if user has permission to return this deployment
+            if not hasattr(request.user, 'profile'):
+                return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Only the driver or admin/staff can return a deployment
+            user_profile = request.user.profile
+            if user_profile.role not in ['admin', 'staff'] and deployment.driver != user_profile:
+                return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            # Get returned containers from request data
+            returned_containers = request.data.get('returned_containers')
+            
+            # Debug: Print returned containers value
+            print(f"DEBUG: returned_containers value: {returned_containers}, type: {type(returned_containers)}")
+            
+            # Update deployment status to returned
+            deployment.status = 'returned'
+            if returned_containers is not None:
+                try:
+                    deployment.returned_containers = int(returned_containers)
+                except (ValueError, TypeError) as e:
+                    print(f"DEBUG: Error converting returned_containers to int: {e}")
+                    deployment.returned_containers = None
+            deployment.save()            
+            # Debug: Print deployment after save
+            print(f"DEBUG: Deployment after save - returned_containers: {deployment.returned_containers}")            
+            # Create activity log
+            try:
+                from core.models import ActivityLog
+                meta_data = {
+                    "deployment_id": deployment.id,
+                    "stock": deployment.stock,
+                    "status": deployment.status
+                }
+                
+                # Add returned containers to meta data if provided
+                if returned_containers is not None:
+                    meta_data["returned_containers"] = int(returned_containers)
+                
+                # Safely add related object IDs
+                if hasattr(deployment, 'driver') and deployment.driver:
+                    meta_data["driver_id"] = getattr(deployment.driver, 'id', None)
+                if hasattr(deployment, 'vehicle') and deployment.vehicle:
+                    meta_data["vehicle_id"] = getattr(deployment.vehicle, 'id', None)
+                if hasattr(deployment, 'route') and deployment.route:
+                    meta_data["route_id"] = getattr(deployment.route, 'id', None)
+                if hasattr(deployment, 'product') and deployment.product:
+                    meta_data["product_id"] = getattr(deployment.product, 'id', None)
+                
+                ActivityLog.objects.create(
+                    actor=user_profile,
+                    action="deployment_returned",
+                    entity="deployment",
+                    meta=meta_data
+                )
+            except Exception as e:
+                print(f"Failed to create activity log: {e}")
+            
+            serializer = self.get_serializer(deployment)
+            return Response(serializer.data)
+        except Deployment.DoesNotExist:
+            return Response({'error': 'Deployment not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"DEBUG: Exception in return_deployment: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

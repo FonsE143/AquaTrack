@@ -113,6 +113,7 @@ export default function AdminOrders() {
     { label:'Inventory', href:'/admin/inventory' },
     { label:'Users', href:'/admin/users' },
     { label:'Deployment', href:'/admin/deployment' },
+    { label: 'Deployment History', href: '/admin/deployment-history' },
     { label:'Employees', href:'/admin/employees' },
     { label:'Activity Log', href:'/admin/activity', adminOnly: true },
   ]

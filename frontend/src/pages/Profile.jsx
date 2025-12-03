@@ -46,6 +46,7 @@ const Profile = () => {
           { label: 'Dashboard', href: '/admin/dashboard' },
           { label: 'Route', href: '/admin/route' },
           { label: 'Deployment', href: '/admin/deployment' },
+          { label: 'Deployment History', href: '/admin/deployment-history' },
           { label: 'Employees', href: '/admin/employees' },
           { label: 'Customers', href: '/admin/customers' },
           { label: 'Products', href: '/admin/products', adminOnly: true },
@@ -55,6 +56,7 @@ const Profile = () => {
         return [
           { label: 'Dashboard', href: '/staff/dashboard' },
           { label: 'Deployment', href: '/staff/deployment' },
+          { label: 'Deployment History', href: '/staff/deployment-history' },
           { label: 'Activity Logs', href: '/staff/activity-logs' },
         ]
       case 'driver':
@@ -364,6 +366,7 @@ const Profile = () => {
                 <h1 className="h3 mb-1">My Profile</h1>
                 <p className="text-muted mb-0">Manage your personal information</p>
               </div>
+
             </div>
 
             {message && (

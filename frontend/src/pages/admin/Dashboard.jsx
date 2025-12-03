@@ -4,15 +4,17 @@ import { Sidebar } from '../../components/Sidebar'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import { DollarSign, Truck, Package, TrendingUp, Download, MapPin, Clock } from 'lucide-react'
+import { DollarSign, Truck, Package, TrendingUp, Download, MapPin, Clock, History } from 'lucide-react'
 import { useState } from 'react'
 import { createStyledAlert } from '../../utils/alertHelper'
+import { Link } from 'react-router-dom'
 
 export default function AdminDashboard() {
   const items = [
     { label: 'Dashboard', href: '/admin/dashboard', active: true },
     { label: 'Route', href: '/admin/route' , adminOnly: true },
     { label: 'Deployment', href: '/admin/deployment' , adminOnly: true },
+    { label: 'Deployment History', href: '/admin/deployment-history' , adminOnly: true },
     { label: 'Employees', href: '/admin/employees', adminOnly: true  },
     { label: 'Customers', href: '/admin/customers', adminOnly: true  },
     { label: 'Products', href: '/admin/products', adminOnly: true },
@@ -133,6 +135,9 @@ export default function AdminDashboard() {
             <p className="text-muted mb-0">Revenue overview and delivery tracking</p>
           </div>
           <div className="d-flex gap-2">
+            <Link to="/admin/deployment-history" className="btn btn-outline-primary d-flex align-items-center gap-2">
+              <History size={16} /> Deployment History
+            </Link>
             <button 
               className="btn btn-success d-flex align-items-center gap-2"
               onClick={() => window.location.href = '/api/reports/export_delivered_orders/'}

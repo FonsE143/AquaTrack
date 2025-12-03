@@ -1,16 +1,18 @@
 // src/pages/staff/Dashboard.jsx
 import AppShell from '../../components/AppShell'
 import { Sidebar } from '../../components/Sidebar'
-import { Truck, Package, Plus } from 'lucide-react'
+import { Truck, Package, Plus, History } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useState } from 'react'
 import { createStyledAlert } from '../../utils/alertHelper'
+import { Link } from 'react-router-dom'
 
 export default function StaffDashboard() {
   const items = [
     { label: 'Dashboard', href: '/staff/dashboard', active: true },
     { label: 'Deployment', href: '/staff/deployment' },
+    { label: 'Deployment History', href: '/staff/deployment-history' },
     { label: 'Activity Logs', href: '/staff/activity-logs' },
   ]
 
@@ -64,12 +66,17 @@ export default function StaffDashboard() {
             </div>
             <p className="text-muted mb-0">Overview of active drivers and orders</p>
           </div>
-          <button 
-            className="btn btn-primary d-flex align-items-center gap-2"
-            onClick={() => setShowWalkInOrder(true)}
-          >
-            <Plus size={16} /> Walk-in Order
-          </button>
+          <div className="d-flex gap-2">
+            <Link to="/staff/deployment-history" className="btn btn-outline-primary d-flex align-items-center gap-2">
+              <History size={16} /> Deployment History
+            </Link>
+            <button 
+              className="btn btn-primary d-flex align-items-center gap-2"
+              onClick={() => setShowWalkInOrder(true)}
+            >
+              <Plus size={16} /> Walk-in Order
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}

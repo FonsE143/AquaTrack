@@ -45,6 +45,7 @@ export default function DriverDeliveries() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['my-deliveries'])
+      queryClient.invalidateQueries(['my-deployment'])
       createStyledAlert('success', 'Delivery Updated', 'Delivery status updated successfully!')
     },
     onError: (error) => {
@@ -79,14 +80,23 @@ export default function DriverDeliveries() {
 
   // Handle complete delivery with input for delivered quantity
   const handleCompleteDelivery = (delivery) => {
+    // Calculate maximum allowed quantity (order quantity + free items)
+    const maxQuantity = (delivery.order_quantity || 0) + (delivery.order_free_items || 0);
+    
     createStyledConfirm(
       'Complete Delivery', 
-      'Mark this delivery as completed?',
+      `Mark this delivery as completed? Maximum allowed: ${maxQuantity}`,
       (deliveredQuantity) => {
         // Validate delivered quantity
         const qty = parseInt(deliveredQuantity);
         if (isNaN(qty) || qty <= 0) {
           createStyledAlert('error', 'Invalid Quantity', 'Please enter a valid quantity greater than 0');
+          return;
+        }
+        
+        // Check if quantity exceeds maximum allowed
+        if (qty > maxQuantity) {
+          createStyledAlert('error', 'Invalid Quantity', `You cannot deliver more than ${maxQuantity} containers for this order`);
           return;
         }
         
@@ -101,9 +111,10 @@ export default function DriverDeliveries() {
       {
         inputLabel: 'Delivered Quantity',
         inputType: 'number',
-        inputPlaceholder: 'Enter quantity delivered',
+        inputPlaceholder: `Enter quantity delivered (max: ${maxQuantity})`,
         inputRequired: true,
-        inputValue: delivery.order_quantity
+        inputValue: delivery.order_quantity,
+        inputMax: maxQuantity
       }
     );
   }

@@ -150,7 +150,7 @@ export const createStyledConfirm = (title, message, onConfirm, onCancel, options
     <div class="mb-3">
       <label class="form-label">${options.inputLabel}</label>
       <input type="${options.inputType || 'text'}" class="form-control" id="confirm-input" placeholder="${options.inputPlaceholder || ''}" 
-             ${options.inputRequired ? 'required' : ''} value="${options.inputValue || ''}">
+             ${options.inputRequired ? 'required' : ''} value="${options.inputValue || ''}" ${options.inputMax ? `max="${options.inputMax}"` : ''}>
       ${options.inputHelpText ? `<div class="form-text">${options.inputHelpText}</div>` : ''}
     </div>
   ` : '';
@@ -200,6 +200,23 @@ export const createStyledConfirm = (title, message, onConfirm, onCancel, options
       if (options.inputRequired && !inputValue.trim()) {
         inputField.classList.add('is-invalid');
         return;
+      }
+      
+      // Validate max value if specified
+      if (options.inputMax !== undefined) {
+        const numValue = parseFloat(inputValue);
+        if (!isNaN(numValue) && numValue > options.inputMax) {
+          inputField.classList.add('is-invalid');
+          // Show error message
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'invalid-feedback d-block';
+          errorDiv.textContent = `Value cannot exceed ${options.inputMax}`;
+          // Insert after input field if not already present
+          if (!inputField.parentNode.querySelector('.invalid-feedback')) {
+            inputField.parentNode.appendChild(errorDiv);
+          }
+          return;
+        }
       }
     }
     
