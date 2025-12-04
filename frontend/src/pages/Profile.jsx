@@ -43,14 +43,14 @@ const Profile = () => {
     switch (data.role) {
       case 'admin':
         return [
-          { label: 'Dashboard', href: '/admin/dashboard' },
-          { label: 'Route', href: '/admin/route' },
-          { label: 'Deployment', href: '/admin/deployment' },
-          { label: 'Deployment History', href: '/admin/deployment-history' },
-          { label: 'Employees', href: '/admin/employees' },
-          { label: 'Customers', href: '/admin/customers' },
-          { label: 'Products', href: '/admin/products', adminOnly: true },
-          { label: 'Activity Logs', href: '/admin/activity-logs' },
+    { label: 'Dashboard', href: '/admin/dashboard', adminOnly: true },
+    { label: 'Route', href: '/admin/route' , adminOnly: true },
+    { label: 'Deployment', href: '/admin/deployment' , adminOnly: true },
+    { label: 'Deployment History', href: '/admin/deployment-history' , adminOnly: true },
+    { label: 'Employees', href: '/admin/employees', adminOnly: true  },
+    { label: 'Customers', href: '/admin/customers', adminOnly: true  },
+    { label: 'Products', href: '/admin/products', adminOnly: true },
+    { label: 'Activity Logs', href: '/admin/activity-logs', adminOnly: true  },
         ]
       case 'staff':
         return [
@@ -165,8 +165,27 @@ const Profile = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    console.log('Form field changed:', name, value, typeof value);
-    setForm((prev) => ({ ...prev, [name]: value }))
+    
+    // Special handling for phone input to enforce format
+    if (name === 'phone') {
+      // Remove any non-digit characters
+      let phoneValue = value.replace(/\D/g, '');
+      // Ensure it starts with 09
+      if (phoneValue.length > 0 && !phoneValue.startsWith('09')) {
+        if (phoneValue.startsWith('9')) {
+          phoneValue = '0' + phoneValue;
+        } else {
+          phoneValue = '09' + phoneValue.substring(0, 9);
+        }
+      }
+      // Limit to 11 digits
+      if (phoneValue.length > 11) {
+        phoneValue = phoneValue.substring(0, 11);
+      }
+      setForm((prev) => ({ ...prev, [name]: phoneValue }))
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }))
+    }
   }
   
   const handlePasswordChange = (e) => {
@@ -428,6 +447,7 @@ const Profile = () => {
                         value={form.phone}
                         onChange={handleChange}
                         className="form-control"
+                        maxLength="11"
                       />
                     </div>
                     

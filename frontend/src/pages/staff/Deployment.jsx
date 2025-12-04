@@ -27,11 +27,11 @@ export default function StaffDeployment() {
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'info' })
   const [isEditing, setIsEditing] = useState(false)
 
-  // Fetch deployment data
+  // Fetch deployment data (exclude returned and completed deployments)
   const { data: deployments, isLoading: deploymentsLoading, error } = useQuery({
     queryKey: ['deployments'],
     queryFn: async () => {
-      const response = await api.get('/deployments/')
+      const response = await api.get('/deployments/?status=active')
       // Handle different response formats
       if (response.data) {
         // If it's already an array, return it

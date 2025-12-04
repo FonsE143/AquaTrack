@@ -4,7 +4,7 @@ import { Sidebar } from '../../components/Sidebar'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import { DollarSign, Truck, Package, TrendingUp, Download, MapPin, Clock, History } from 'lucide-react'
+import { DollarSign, Truck, Package, TrendingUp, Download, MapPin, Clock, History, Gift } from 'lucide-react'
 import { useState } from 'react'
 import { createStyledAlert } from '../../utils/alertHelper'
 import { Link } from 'react-router-dom'
@@ -14,7 +14,7 @@ export default function AdminDashboard() {
     { label: 'Dashboard', href: '/admin/dashboard', active: true },
     { label: 'Route', href: '/admin/route' , adminOnly: true },
     { label: 'Deployment', href: '/admin/deployment' , adminOnly: true },
-    { label: 'Deployment History', href: '/admin/deployment-history' , adminOnly: true },
+    { label: 'Deployment History', href: '/admin/deployment-history' },
     { label: 'Employees', href: '/admin/employees', adminOnly: true  },
     { label: 'Customers', href: '/admin/customers', adminOnly: true  },
     { label: 'Products', href: '/admin/products', adminOnly: true },
@@ -24,8 +24,90 @@ export default function AdminDashboard() {
   const [showWalkInOrder, setShowWalkInOrder] = useState(false)
   const [walkInOrder, setWalkInOrder] = useState({
     product: '',
-    quantity: 1
+    quantity: 1,
+    returnedContainers: 0
   })
+
+  // Calculate free items based on quantity (buy 10 get 1 free)
+  const calculateFreeItems = (quantity) => {
+    // Return 0 if quantity is not a valid number
+    if (!quantity || isNaN(parseInt(quantity))) return 0;
+    return Math.floor(parseInt(quantity) / 10);
+  };
+  
+  // Get product price by ID
+  const getProductPrice = (productId) => {
+    if (!Array.isArray(products) || !productId || isNaN(parseInt(productId))) return 0;
+    const product = products.find(p => p.id === parseInt(productId));
+    // Return 0 if product not found or price is not a valid number
+    return product && product.price !== undefined && product.price !== null && !isNaN(parseFloat(product.price)) ? parseFloat(product.price) : 0;
+  };
+  
+  // Calculate total cost
+  const calculateTotalCost = (productId, quantity) => {
+    const price = getProductPrice(productId);
+    // Return 0 if quantity is not a valid number
+    if (!quantity || isNaN(parseInt(quantity))) return 0;
+    return price * parseInt(quantity || 0);
+  };
+  
+  // Get product name by ID
+  const getProductName = (productId) => {
+    if (!Array.isArray(products) || !productId || isNaN(parseInt(productId))) return '';
+    const product = products.find(p => p.id === parseInt(productId));
+    // Return empty string if product not found or name is not valid
+    return product && product.name ? product.name : '';
+  };
+  
+  // Get maximum quantity for a product
+  const getMaxQuantity = (productId) => {
+    if (!Array.isArray(products) || !productId || isNaN(parseInt(productId))) return 0;
+    const product = products.find(p => p.id === parseInt(productId));
+    // Return 0 if product not found or stock is not a valid number
+    return product && product.stock !== undefined && product.stock !== null && !isNaN(parseInt(product.stock)) ? parseInt(product.stock) : 0;
+  };
+  
+  // Get available stock for a product
+  const getAvailableStock = (productId) => {
+    // Return 0 if products array is not available or product ID is invalid
+    if (!Array.isArray(products) || !productId || isNaN(parseInt(productId))) return 0;
+    const product = products.find(p => p.id === parseInt(productId));
+    // Return 0 if product not found or stock is not a valid number
+    return product && product.stock !== undefined && product.stock !== null && !isNaN(parseInt(product.stock)) ? parseInt(product.stock) : 0;
+  };
+  
+  // Check if product is out of stock
+  const isProductOutOfStock = (productId) => {
+    // Return true if product ID is invalid or stock is 0 or less
+    if (!productId || isNaN(parseInt(productId))) return true;
+    return getAvailableStock(productId) <= 0;
+  };
+  
+  // Check if requested quantity exceeds available stock
+  const isQuantityExceedingStock = (productId, quantity) => {
+    // Return false if product ID is invalid or quantity is not a valid number
+    if (!productId || isNaN(parseInt(productId)) || !quantity || isNaN(parseInt(quantity))) return false;
+    return parseInt(quantity) > getAvailableStock(productId);
+  };
+  
+  // Get stock warning message
+  const getStockWarning = (productId) => {
+    // Return empty string if no product selected or invalid product ID
+    if (!productId || isNaN(parseInt(productId))) return '';
+    const stock = getAvailableStock(productId);
+    // Return empty string if stock data is not available or is not a valid number
+    if (stock === null || stock === undefined || isNaN(stock)) return '';
+    if (stock <= 0) return 'Out of stock';
+    if (stock <= 5) return `Only ${stock} left in stock`;
+    return `${stock} available`;
+  };
+  
+  // Format currency (using existing formatCurrency function)
+  const formatPrice = (amount) => {
+    // Return formatted 0 if amount is not a valid number
+    if (!amount || isNaN(parseFloat(amount))) return '₱0.00';
+    return `₱${Number(parseFloat(amount) || 0).toFixed(2)}`;
+  };
 
   // Fetch reports data
   const { data: reports, isLoading: reportsLoading } = useQuery({
@@ -112,11 +194,12 @@ export default function AdminDashboard() {
     try {
       await api.post('/walk-in-orders/', {
         product: parseInt(walkInOrder.product),
-        quantity: parseInt(walkInOrder.quantity)
+        quantity: parseInt(walkInOrder.quantity),
+        returned_containers: parseInt(walkInOrder.returnedContainers) || 0
       })
       createStyledAlert('success', 'Order Created', 'Walk-in order created successfully!')
       setShowWalkInOrder(false)
-      setWalkInOrder({ product: '', quantity: 1 })
+      setWalkInOrder({ product: '', quantity: 1, returnedContainers: 0 })
     } catch (error) {
       createStyledAlert('error', 'Order Failed', 'Failed to create walk-in order: ' + (error.response?.data?.detail || error.message))
     }
@@ -135,15 +218,6 @@ export default function AdminDashboard() {
             <p className="text-muted mb-0">Revenue overview and delivery tracking</p>
           </div>
           <div className="d-flex gap-2">
-            <Link to="/admin/deployment-history" className="btn btn-outline-primary d-flex align-items-center gap-2">
-              <History size={16} /> Deployment History
-            </Link>
-            <button 
-              className="btn btn-success d-flex align-items-center gap-2"
-              onClick={() => window.location.href = '/api/reports/export_delivered_orders/'}
-            >
-              <Download size={16} /> Export Data
-            </button>
             <button 
               className="btn btn-primary d-flex align-items-center gap-2"
               onClick={() => setShowWalkInOrder(true)}
@@ -298,24 +372,86 @@ export default function AdminDashboard() {
                         required
                       >
                         <option value="">Select Product</option>
-                        {Array.isArray(products) && products.map(product => (
-                          <option key={product.id} value={product.id}>{product.name}</option>
-                        ))}
+                        {Array.isArray(products) && products
+                          .filter(product => product && product.id && product.name) // Filter out invalid products
+                          .map(product => {
+                            return (
+                              <option key={product.id} value={product.id}>
+                                {product.name} - {formatPrice(product.price)}
+                              </option>
+                            );
+                          })}
                       </select>
+                      {walkInOrder.product && (
+                        <div className="mt-2">
+                          <small className="text-muted">
+                            {getProductName(walkInOrder.product)} - {formatPrice(getProductPrice(walkInOrder.product))} each
+                          </small>
+                        </div>
+                      )}
                     </div>
                     <div className="mb-3">
-                      <label className="form-label">Quantity</label>
+                      <label className="form-label">
+                        Quantity
+                        {walkInOrder.quantity >= 10 && (
+                          <span className="text-success ms-2">
+                            <Gift size={16} className="d-inline" /> 
+                            Buy {walkInOrder.quantity} get {calculateFreeItems(walkInOrder.quantity)} free!
+                          </span>
+                        )}
+                      </label>
                       <input 
                         type="number" 
-                        className="form-control" 
+                        className="form-control"
                         min="1"
+                        max="999999"
                         value={walkInOrder.quantity}
-                        onChange={(e) => setWalkInOrder({...walkInOrder, quantity: e.target.value})}
+                        onChange={(e) => setWalkInOrder({...walkInOrder, quantity: parseInt(e.target.value || 1)})}
                         required
                       />
+                      {/* Removed stock validation for walk-in orders */}
+                      {walkInOrder.quantity >= 10 && (
+                        <div className="alert alert-success mt-2 mb-0 py-2">
+                          <div className="d-flex align-items-center gap-2">
+                            <Gift size={16} />
+                            <div>
+                              <strong>Promotion:</strong> Customer will receive <strong>{walkInOrder.quantity + calculateFreeItems(walkInOrder.quantity)}</strong> units 
+                              ({walkInOrder.quantity} ordered + {calculateFreeItems(walkInOrder.quantity)} free)!
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label">Returned Containers</label>
+                      <input 
+                        type="number" 
+                        className="form-control"
+                        min="0"
+                        max={walkInOrder.quantity + calculateFreeItems(walkInOrder.quantity)}
+                        value={walkInOrder.returnedContainers}
+                        onChange={(e) => setWalkInOrder({...walkInOrder, returnedContainers: parseInt(e.target.value || 0)})}
+                      />
+                      <div className="form-text">
+                        Maximum: {walkInOrder.quantity + calculateFreeItems(walkInOrder.quantity)} containers
+                      </div>
                     </div>
                   </div>
                   <div className="modal-footer">
+                    <div className="me-auto">
+                      <div className="fw-bold">
+                        Total Cost: {formatPrice(calculateTotalCost(walkInOrder.product, walkInOrder.quantity))}
+                      </div>
+                      <div className="small text-muted">
+                        {walkInOrder.quantity} × {formatPrice(getProductPrice(walkInOrder.product))} = {formatPrice(calculateTotalCost(walkInOrder.product, walkInOrder.quantity))}
+                      </div>
+                      {calculateFreeItems(walkInOrder.quantity) > 0 && (
+                        <div className="small text-success">
+                          <Gift size={12} className="d-inline" /> 
+                          +{calculateFreeItems(walkInOrder.quantity)} free items ({getProductName(walkInOrder.product)})
+                        </div>
+                      )}
+                    </div>
                     <button 
                       type="button" 
                       className="btn btn-secondary" 
@@ -326,6 +462,7 @@ export default function AdminDashboard() {
                     <button 
                       type="submit" 
                       className="btn btn-success"
+                      disabled={!walkInOrder.product || walkInOrder.quantity < 1}
                     >
                       Create Order
                     </button>

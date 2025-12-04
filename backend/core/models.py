@@ -79,6 +79,17 @@ class WalkInOrder(models.Model):
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
     quantity = models.PositiveIntegerField()
+    free_items = models.PositiveIntegerField(default=0)
+    returned_containers = models.PositiveIntegerField(null=True, blank=True, default=0)
+    
+    def save(self, *args, **kwargs):
+        # Calculate free items (buy 10 get 1 free)
+        self.free_items = self.quantity // 10
+        super().save(*args, **kwargs)
+    
+    @property
+    def total_quantity(self):
+        return self.quantity + self.free_items
 
 class Route(models.Model):
     route_number = models.CharField(max_length=20)
@@ -197,6 +208,7 @@ class Delivery(models.Model):
     route = models.ForeignKey(Route, on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     delivered_quantity = models.PositiveIntegerField(null=True, blank=True)
+    returned_containers = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     delivered_at = models.DateTimeField(null=True, blank=True)
@@ -252,11 +264,20 @@ class Delivery(models.Model):
                     print(f"Found deployment with stock {deployment.stock}")
                     if deployment.stock >= delivered_quantity:
                         deployment.stock -= delivered_quantity
+                        
+                        # Accumulate returned containers in the deployment
+                        if self.returned_containers is not None and self.returned_containers > 0:
+                            if deployment.returned_containers is None:
+                                deployment.returned_containers = 0
+                            deployment.returned_containers += self.returned_containers
+                        
                         # Automatically change status to completed when stock reaches zero
                         if deployment.stock == 0:
                             deployment.status = 'completed'
                         deployment.save()
                         print(f"Reduced deployment stock by {delivered_quantity}. New stock: {deployment.stock}")
+                        if self.returned_containers is not None and self.returned_containers > 0:
+                            print(f"Added {self.returned_containers} returned containers to deployment. Total returned: {deployment.returned_containers}")
                         if deployment.stock == 0:
                             print(f"Deployment stock reached zero, marked as completed")
                     else:

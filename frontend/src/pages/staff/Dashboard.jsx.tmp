@@ -18,8 +18,7 @@ export default function StaffDashboard() {
   const [showWalkInOrder, setShowWalkInOrder] = useState(false)
   const [walkInOrder, setWalkInOrder] = useState({
     product: '',
-    quantity: 1,
-    returnedContainers: 0
+    quantity: 1
   })
 
   // Calculate free items based on quantity (buy 10 get 1 free)
@@ -136,12 +135,11 @@ export default function StaffDashboard() {
     try {
       await api.post('/walk-in-orders/', {
         product: parseInt(walkInOrder.product),
-        quantity: parseInt(walkInOrder.quantity),
-        returned_containers: parseInt(walkInOrder.returnedContainers) || 0
+        quantity: parseInt(walkInOrder.quantity)
       })
       createStyledAlert('success', 'Order Created', 'Walk-in order created successfully!')
       setShowWalkInOrder(false)
-      setWalkInOrder({ product: '', quantity: 1, returnedContainers: 0 })
+      setWalkInOrder({ product: '', quantity: 1 })
     } catch (error) {
       createStyledAlert('error', 'Order Failed', 'Failed to create walk-in order: ' + (error.response?.data?.detail || error.message))
     }
@@ -312,9 +310,10 @@ export default function StaffDashboard() {
                         {Array.isArray(products) && products
                           .filter(product => product && product.id && product.name) // Filter out invalid products
                           .map(product => {
+                            const stockWarning = getStockWarning(product.id);
                             return (
                               <option key={product.id} value={product.id}>
-                                {product.name} - {formatCurrency(product.price)}
+                                {product.name} - {formatCurrency(product.price)}{stockWarning ? ` (${stockWarning})` : ''}
                               </option>
                             );
                           })}
@@ -339,14 +338,18 @@ export default function StaffDashboard() {
                       </label>
                       <input 
                         type="number" 
-                        className="form-control"
+                        className={`form-control ${isQuantityExceedingStock(walkInOrder.product, walkInOrder.quantity) ? 'is-invalid' : ''}`}
                         min="1"
-                        max="999999"
+                        max={getMaxQuantity(walkInOrder.product)}
                         value={walkInOrder.quantity}
                         onChange={(e) => setWalkInOrder({...walkInOrder, quantity: parseInt(e.target.value || 1)})}
                         required
                       />
-                      {/* Removed stock validation for walk-in orders */}
+                      {isQuantityExceedingStock(walkInOrder.product, walkInOrder.quantity) && (
+                        <div className="invalid-feedback">
+                          Quantity exceeds available stock ({getAvailableStock(walkInOrder.product)} available)
+                        </div>
+                      )}
                       {walkInOrder.quantity >= 10 && (
                         <div className="alert alert-success mt-2 mb-0 py-2">
                           <div className="d-flex align-items-center gap-2">
@@ -358,20 +361,6 @@ export default function StaffDashboard() {
                           </div>
                         </div>
                       )}
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">Returned Containers</label>
-                      <input 
-                        type="number" 
-                        className="form-control"
-                        min="0"
-                        max={walkInOrder.quantity + calculateFreeItems(walkInOrder.quantity)}
-                        value={walkInOrder.returnedContainers}
-                        onChange={(e) => setWalkInOrder({...walkInOrder, returnedContainers: parseInt(e.target.value || 0)})}
-                      />
-                      <div className="form-text">
-                        Maximum: {walkInOrder.quantity + calculateFreeItems(walkInOrder.quantity)} containers
-                      </div>
                     </div>
                   </div>
                   <div className="modal-footer">
@@ -399,7 +388,7 @@ export default function StaffDashboard() {
                     <button 
                       type="submit" 
                       className="btn btn-success"
-                      disabled={!walkInOrder.product || walkInOrder.quantity < 1}
+                      disabled={!walkInOrder.product || walkInOrder.quantity < 1 || isQuantityExceedingStock(walkInOrder.product, walkInOrder.quantity)}
                     >
                       Create Order
                     </button>

@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useState, useEffect } from 'react'
 import { createStyledAlert } from '../../utils/alertHelper'
+import Modal from '../../components/Modal'
 
 export default function AdminEmployees() {
   const items = [
@@ -428,10 +429,10 @@ export default function AdminEmployees() {
     // Validate phone if provided
     const phone = formData.get('phone');
     if (phone && phone.trim() !== '') {
-      // Allow common phone formats
-      const phoneRegex = /^(09\d{2}[-\s]?\d{3}[-\s]?\d{4}|\+639\d{9})$/;
+      // Validate Philippine mobile number format (must start with 09 and be 11 digits)
+      const phoneRegex = /^09\d{9}$/;
       if (!phoneRegex.test(phone.trim())) {
-        errors.phone = 'Invalid phone number format. Use 09xx xxx xxxx or +639xxxxxxxxx';
+        errors.phone = 'Invalid phone number format. Must start with 09 and be exactly 11 digits';
       }
     }
     
@@ -614,9 +615,27 @@ export default function AdminEmployees() {
               className="form-control" 
               name="phone" 
               defaultValue={currentItem?.phone || ''}
+              maxLength="11"
+              onInput={(e) => {
+                // Remove any non-digit characters
+                let value = e.target.value.replace(/\D/g, '');
+                // Ensure it starts with 09
+                if (value.length > 0 && !value.startsWith('09')) {
+                  if (value.startsWith('9')) {
+                    value = '0' + value;
+                  } else {
+                    value = '09' + value.substring(0, 9);
+                  }
+                }
+                // Limit to 11 digits
+                if (value.length > 11) {
+                  value = value.substring(0, 11);
+                }
+                e.target.value = value;
+              }}
             />
             <div className="form-text small text-muted">
-              Optional. Format: 09xx xxx xxxx or +639xxxxxxxxx
+              Optional. Must start with 09 and be exactly 11 digits
             </div>
           </div>
           
@@ -1017,94 +1036,70 @@ export default function AdminEmployees() {
         </div>
 
         {/* Confirmation Modal */}
-        {confirmation.isOpen && (
-          <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10000 }}>
-            <div className="modal-dialog">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title">{confirmation.title}</h5>
-                  <button 
-                    type="button" 
-                    className="btn-close" 
-                    onClick={() => setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null })}
-                  ></button>
-                </div>
-                <div className="modal-body">
-                  <p>{confirmation.message}</p>
-                </div>
-                <div className="modal-footer">
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary" 
-                    onClick={() => setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null })}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-danger"
-                    onClick={() => {
-                      if (confirmation.onConfirm) confirmation.onConfirm();
-                      setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null });
-                    }}
-                  >
-                    Confirm
-                  </button>
-                </div>
-              </div>
-            </div>
+        <Modal
+          isOpen={confirmation.isOpen}
+          onClose={() => setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null })}
+          title={confirmation.title}
+          type="warning"
+        >
+          <p>{confirmation.message}</p>
+          <div className="d-flex gap-2 mt-4">
+            <button 
+              type="button" 
+              className="btn btn-secondary"
+              onClick={() => setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null })}
+            >
+              Cancel
+            </button>
+            <button 
+              type="button" 
+              className="btn btn-danger"
+              onClick={() => {
+                if (confirmation.onConfirm) confirmation.onConfirm();
+                setConfirmation({ isOpen: false, title: '', message: '', onConfirm: null });
+              }}
+            >
+              Confirm
+            </button>
           </div>
-        )}
+        </Modal>
 
         {/* Modal */}
-        {showModal && (
-          <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <div className="modal-dialog">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title">
-                    {modalType === 'create' ? 'Add New' : 'Edit'} {activeTab === 'vehicles' ? 'Vehicle' : activeTab.slice(0, -1)}
-                  </h5>
-                  <button 
-                    type="button" 
-                    className="btn-close" 
-                    onClick={() => setShowModal(false)}
-                  ></button>
-                </div>
-                <form onSubmit={handleSubmit}>
-                  <div className="modal-body">
-                    {renderFormFields()}
-                  </div>
-                  <div className="modal-footer">
-                    <button 
-                      type="button" 
-                      className="btn btn-secondary" 
-                      onClick={() => setShowModal(false)}
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      type="submit" 
-                      className="btn btn-success"
-                      disabled={createUserMutation.isLoading || updateUserMutation.isLoading || createVehicleMutation.isLoading || updateVehicleMutation.isLoading}
-                    >
-                      {(createUserMutation.isLoading || updateUserMutation.isLoading || createVehicleMutation.isLoading || updateVehicleMutation.isLoading) ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          {modalType === 'create' ? 'Create' : 'Update'}
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
+        <Modal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          title={modalType === 'create' ? 'Add New' : 'Edit'}
+          type={modalType === 'create' ? 'success' : 'info'}
+        >
+          <form onSubmit={handleSubmit}>
+            {renderFormFields()}
+            <div className="d-flex gap-2 mt-4">
+              <button 
+                type="submit" 
+                className={`btn ${modalType === 'create' ? 'btn-success' : 'btn-primary'} w-100`}
+                disabled={createUserMutation.isLoading || updateUserMutation.isLoading || createVehicleMutation.isLoading || updateVehicleMutation.isLoading}
+              >
+                {(createUserMutation.isLoading || updateUserMutation.isLoading || createVehicleMutation.isLoading || updateVehicleMutation.isLoading) ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    {modalType === 'create' ? 'Create' : 'Update'}
+                  </>
+                )}
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-secondary"
+                onClick={() => setShowModal(false)}
+              >
+                Cancel
+              </button>
             </div>
-          </div>
-        )}
+          </form>
+        </Modal>
       </div>
     </AppShell>
   )

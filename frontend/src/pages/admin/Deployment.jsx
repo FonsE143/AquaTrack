@@ -10,13 +10,14 @@ import { Link } from 'react-router-dom'
 
 export default function AdminDeployment() {
   const items = [
-    { label: 'Dashboard', href: '/admin/dashboard' },
-    { label: 'Route', href: '/admin/route' },
-    { label: 'Deployment', href: '/admin/deployment', active: true },
-    { label: 'Employees', href: '/admin/employees' },
-    { label: 'Customers', href: '/admin/customers' },
+    { label: 'Dashboard', href: '/admin/dashboard', adminOnly: true },
+    { label: 'Route', href: '/admin/route' , adminOnly: true },
+    { label: 'Deployment', href: '/admin/deployment' , adminOnly: true },
+    { label: 'Deployment History', href: '/admin/deployment-history' , adminOnly: true },
+    { label: 'Employees', href: '/admin/employees', adminOnly: true  },
+    { label: 'Customers', href: '/admin/customers', adminOnly: true  },
     { label: 'Products', href: '/admin/products', adminOnly: true },
-    { label: 'Activity Logs', href: '/admin/activity-logs' },
+    { label: 'Activity Logs', href: '/admin/activity-logs', adminOnly: true  },
   ]
 
   const queryClient = useQueryClient()
@@ -32,11 +33,11 @@ export default function AdminDeployment() {
   const [isEditing, setIsEditing] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
-  // Fetch deployment data
+  // Fetch deployment data (only active deployments)
   const { data: deployments, isLoading: deploymentsLoading, error } = useQuery({
     queryKey: ['deployments'],
     queryFn: async () => {
-      const response = await api.get('/deployments/')
+      const response = await api.get('/deployments/?status=active')
       // Handle different response formats
       if (response.data) {
         // If it's already an array, return it

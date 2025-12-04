@@ -225,11 +225,11 @@ class CustomerViewSet(viewsets.ModelViewSet):
         
         # Validate phone if provided
         if phone:
-            # Allow common phone formats
-            phone_regex = r'^(09\d{2}[-\s]?\d{3}[-\s]?\d{4}|\+639\d{9})$'
+            # Validate Philippine mobile number format (must start with 09 and be 11 digits)
+            phone_regex = r'^09\d{9}$'
             if not re.match(phone_regex, phone):
                 return Response(
-                    {'error': 'Invalid phone number format. Use 09xx xxx xxxx or +639xxxxxxxxx'}, 
+                    {'error': 'Invalid phone number format. Must start with 09 and be exactly 11 digits'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
@@ -1262,9 +1262,21 @@ class MeView(views.APIView):
         return Response(serializer.data)
 
 class DeploymentViewSet(viewsets.ModelViewSet):
-    queryset = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').prefetch_related('route__municipalities').filter(status='active').order_by('-created_at')
+    queryset = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').prefetch_related('route__municipalities').order_by('-created_at')
     serializer_class = DeploymentSerializer
     permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by status if provided
+        status_param = self.request.query_params.get('status', None)
+        if status_param:
+            # Split comma-separated statuses
+            statuses = [s.strip() for s in status_param.split(',')]
+            queryset = queryset.filter(status__in=statuses)
+        
+        return queryset
     
     def get_permissions(self):
         # Admin and staff can manage deployments; others can only view
@@ -1310,8 +1322,8 @@ class DeploymentViewSet(viewsets.ModelViewSet):
             # Find routes that include this barangay
             routes_with_barangay = Route.objects.filter(barangays=customer_barangay)
             
-            # Get deployments for these routes
-            deployments = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').filter(route__in=routes_with_barangay).order_by('-created_at')
+            # Get deployments for these routes (exclude returned and completed)
+            deployments = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').filter(route__in=routes_with_barangay).exclude(status__in=['returned', 'completed']).order_by('-created_at')
             
             serializer = self.get_serializer(deployments, many=True)
             return Response({
@@ -1482,8 +1494,8 @@ class DeploymentViewSet(viewsets.ModelViewSet):
             # Find routes that include this barangay
             routes_with_barangay = Route.objects.filter(barangays=customer_barangay)
             
-            # Get deployments for these routes
-            deployments = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').filter(route__in=routes_with_barangay).order_by('-created_at')
+            # Get deployments for these routes (exclude returned and completed)
+            deployments = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').filter(route__in=routes_with_barangay).exclude(status__in=['returned', 'completed']).order_by('-created_at')
             
             serializer = self.get_serializer(deployments, many=True)
             return Response({
@@ -1505,8 +1517,8 @@ class DeploymentViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Only drivers can access their deployment'}, status=status.HTTP_403_FORBIDDEN)
         
         try:
-            # Get the most recent deployment for this driver
-            deployment = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').prefetch_related('route__municipalities', 'route__barangays').filter(driver=request.user.profile).latest('created_at')
+            # Get the most recent deployment for this driver (exclude returned and completed)
+            deployment = Deployment.objects.select_related('driver', 'vehicle', 'route', 'product').prefetch_related('route__municipalities', 'route__barangays').filter(driver=request.user.profile).exclude(status__in=['returned', 'completed']).latest('created_at')
             serializer = self.get_serializer(deployment)
             return Response(serializer.data)
         except Deployment.DoesNotExist:

@@ -9,6 +9,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import AdminDashboard from './pages/admin/Dashboard'
 import AdminDeployment from './pages/admin/Deployment'
+import AdminDeploymentHistory from './pages/admin/DeploymentHistory'
 
 import AdminRoute from './pages/admin/Route'
 import AdminEmployees from './pages/admin/Employees'
@@ -100,6 +101,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/admin/dashboard" element={<RequireAuth allowedRoles={['admin']}><AdminDashboard /></RequireAuth>} />
           <Route path="/admin/route" element={<RequireAuth allowedRoles={['admin']}><AdminRoute /></RequireAuth>} />
           <Route path="/admin/deployment" element={<RequireAuth allowedRoles={['admin']}><AdminDeployment /></RequireAuth>} />
+          <Route path="/admin/deployment-history" element={<RequireAuth allowedRoles={['admin']}><AdminDeploymentHistory /></RequireAuth>} />
 
           <Route path="/admin/employees" element={<RequireAuth allowedRoles={['admin']}><AdminEmployees /></RequireAuth>} />
           <Route path="/admin/products" element={<RequireAuth allowedRoles={['admin']}><AdminProducts /></RequireAuth>} />

@@ -155,11 +155,11 @@ class ProfileSerializer(serializers.ModelSerializer):
         phone = validated_data.get('phone')
         if phone is not None:
             if phone:
-                # Validate phone format if provided
+                # Validate Philippine mobile number format (must start with 09 and be 11 digits)
                 import re
-                phone_regex = r'^(09\d{2}[-\s]?\d{3}[-\s]?\d{4}|\+639\d{9})$'
+                phone_regex = r'^09\d{9}$'
                 if not re.match(phone_regex, phone):
-                    raise serializers.ValidationError({'phone': 'Invalid phone number format. Use 09xx xxx xxxx or +639xxxxxxxxx.'})
+                    raise serializers.ValidationError({'phone': 'Invalid phone number format. Must start with 09 and be exactly 11 digits.'})
             instance.phone = phone
         
         # Handle address field - create or update address based on provided data
@@ -373,14 +373,20 @@ class BarangaySerializer(serializers.ModelSerializer):
 
 class WalkInOrderSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
+    total_quantity = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = WalkInOrder
         fields = '__all__'
-        
+        read_only_fields = ['free_items', 'total_quantity']
+    
+    def get_total_quantity(self, obj):
+        return obj.quantity + obj.free_items
+    
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['product_name'] = instance.product.name
+        representation['total_quantity'] = instance.total_quantity
         return representation
 
 class RouteSerializer(serializers.ModelSerializer):
@@ -638,6 +644,8 @@ class DeliverySerializer(serializers.ModelSerializer):
     customer_phone = serializers.CharField(source='order.customer.phone', read_only=True, allow_null=True)
     # Add delivered quantity field
     delivered_quantity = serializers.IntegerField(required=False)
+    # Add returned containers field
+    returned_containers = serializers.IntegerField(required=False)
     
     def get_order_total_quantity(self, obj):
         return obj.order.quantity + obj.order.free_items
@@ -668,6 +676,13 @@ class DeliverySerializer(serializers.ModelSerializer):
             instance.delivered_quantity = delivered_quantity
             print(f"Stored delivered_quantity on instance: {delivered_quantity}")
         
+        # Handle returned containers update
+        returned_containers = validated_data.pop('returned_containers', None)
+        if returned_containers is not None:
+            # Store the returned containers in the instance
+            instance.returned_containers = returned_containers
+            print(f"Stored returned_containers on instance: {returned_containers}")
+        
         # Update other fields
         print(f"Updating instance with validated_data: {validated_data}")
         return super().update(instance, validated_data)
@@ -675,7 +690,7 @@ class DeliverySerializer(serializers.ModelSerializer):
     class Meta:
         model = Delivery
         fields = [
-            'id','order','order_id','order_product_name','order_product_price','order_quantity','order_free_items','order_total_quantity','order_total_amount','driver','driver_username','driver_first_name','driver_last_name','driver_phone','vehicle','vehicle_name','route','route_number','status','customer_first_name','customer_last_name','customer_address','customer_phone','delivered_quantity','delivered_at','created_at','updated_at'
+            'id','order','order_id','order_product_name','order_product_price','order_quantity','order_free_items','order_total_quantity','order_total_amount','driver','driver_username','driver_first_name','driver_last_name','driver_phone','vehicle','vehicle_name','route','route_number','status','customer_first_name','customer_last_name','customer_address','customer_phone','delivered_quantity','returned_containers','delivered_at','created_at','updated_at'
         ]
         read_only_fields = ['delivered_at','created_at','updated_at']
     

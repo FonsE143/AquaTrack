@@ -36,10 +36,13 @@ export default function DriverDeliveries() {
 
   // Mutation for updating delivery status
   const updateDeliveryStatus = useMutation({
-    mutationFn: async ({ deliveryId, status, deliveredQuantity }) => {
+    mutationFn: async ({ deliveryId, status, deliveredQuantity, returnedContainers }) => {
       const data = { status };
       if (deliveredQuantity !== undefined) {
         data.delivered_quantity = deliveredQuantity;
+      }
+      if (returnedContainers !== undefined) {
+        data.returned_containers = returnedContainers;
       }
       return api.patch(`/deliveries/${deliveryId}/`, data)
     },
@@ -86,7 +89,10 @@ export default function DriverDeliveries() {
     createStyledConfirm(
       'Complete Delivery', 
       `Mark this delivery as completed? Maximum allowed: ${maxQuantity}`,
-      (deliveredQuantity) => {
+      (result) => {
+        // result will be an object with deliveredQuantity and returnedContainers
+        const { deliveredQuantity, returnedContainers } = result;
+        
         // Validate delivered quantity
         const qty = parseInt(deliveredQuantity);
         if (isNaN(qty) || qty <= 0) {
@@ -100,11 +106,27 @@ export default function DriverDeliveries() {
           return;
         }
         
+        // Validate returned containers (if provided)
+        let returnedQty = 0;
+        if (returnedContainers !== undefined && returnedContainers !== null && returnedContainers !== '') {
+          returnedQty = parseInt(returnedContainers);
+          if (isNaN(returnedQty) || returnedQty < 0) {
+            createStyledAlert('error', 'Invalid Returned Containers', 'Please enter a valid number of returned containers (0 or more)');
+            return;
+          }
+          // Check if returned containers exceed delivered quantity
+          if (returnedQty > qty) {
+            createStyledAlert('error', 'Invalid Returned Containers', `You cannot return more containers (${returnedQty}) than delivered (${qty})`);
+            return;
+          }
+        }
+        
         // Update delivery status and quantity
         updateDeliveryStatus.mutate({ 
           deliveryId: delivery.id, 
           status: 'delivered',
-          deliveredQuantity: qty
+          deliveredQuantity: qty,
+          returnedContainers: returnedQty
         });
       },
       null,
@@ -114,7 +136,17 @@ export default function DriverDeliveries() {
         inputPlaceholder: `Enter quantity delivered (max: ${maxQuantity})`,
         inputRequired: true,
         inputValue: delivery.order_quantity,
-        inputMax: maxQuantity
+        inputMax: maxQuantity,
+        additionalInputs: [
+          {
+            label: 'Returned Containers',
+            type: 'number',
+            placeholder: 'Enter number of containers returned (optional)',
+            name: 'returnedContainers',
+            min: 0,
+            max: maxQuantity
+          }
+        ]
       }
     );
   }

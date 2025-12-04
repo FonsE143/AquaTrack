@@ -154,6 +154,17 @@ export const createStyledConfirm = (title, message, onConfirm, onCancel, options
       ${options.inputHelpText ? `<div class="form-text">${options.inputHelpText}</div>` : ''}
     </div>
   ` : '';
+  
+  // Check if we need additional inputs
+  const additionalInputsHtml = options.additionalInputs && Array.isArray(options.additionalInputs) ? 
+    options.additionalInputs.map(input => `
+      <div class="mb-3">
+        <label class="form-label">${input.label}</label>
+        <input type="${input.type || 'text'}" class="form-control" name="${input.name || ''}" placeholder="${input.placeholder || ''}" 
+               ${input.required ? 'required' : ''} value="${input.value || ''}" ${input.min !== undefined ? `min="${input.min}"` : ''} ${input.max !== undefined ? `max="${input.max}"` : ''}>
+        ${input.helpText ? `<div class="form-text">${input.helpText}</div>` : ''}
+      </div>
+    `).join('') : '';
 
   confirmDialog.innerHTML = `
     <div class="modal-dialog modal-dialog-centered">
@@ -165,6 +176,7 @@ export const createStyledConfirm = (title, message, onConfirm, onCancel, options
         <div class="modal-body pt-0">
           <p class="mb-0">${message}</p>
           ${inputHtml}
+          ${additionalInputsHtml}
         </div>
         <div class="modal-footer border-0 pt-0">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -181,6 +193,7 @@ export const createStyledConfirm = (title, message, onConfirm, onCancel, options
   const cancelBtn = confirmDialog.querySelector('.btn-outline-secondary');
   const confirmBtn = confirmDialog.querySelector('.btn-primary');
   const inputField = confirmDialog.querySelector('#confirm-input');
+  const additionalInputs = confirmDialog.querySelectorAll('input[name]');
   
   const closeDialog = () => {
     confirmDialog.style.opacity = '0';
@@ -194,6 +207,9 @@ export const createStyledConfirm = (title, message, onConfirm, onCancel, options
   
   const confirmAction = () => {
     let inputValue = null;
+    const additionalValues = {};
+    
+    // Handle primary input
     if (inputField) {
       inputValue = inputField.value;
       // Validate if required
@@ -220,12 +236,71 @@ export const createStyledConfirm = (title, message, onConfirm, onCancel, options
       }
     }
     
+    // Handle additional inputs
+    additionalInputs.forEach(input => {
+      const name = input.getAttribute('name');
+      if (name) {
+        additionalValues[name] = input.value;
+        
+        // Validate required fields
+        if (input.hasAttribute('required') && !input.value.trim()) {
+          input.classList.add('is-invalid');
+          return;
+        }
+        
+        // Validate min/max values
+        const minValue = input.getAttribute('min');
+        const maxValue = input.getAttribute('max');
+        if (minValue !== null || maxValue !== null) {
+          const numValue = parseFloat(input.value);
+          if (!isNaN(numValue)) {
+            if (minValue !== null && numValue < parseFloat(minValue)) {
+              input.classList.add('is-invalid');
+              const errorDiv = document.createElement('div');
+              errorDiv.className = 'invalid-feedback d-block';
+              errorDiv.textContent = `Value cannot be less than ${minValue}`;
+              if (!input.parentNode.querySelector('.invalid-feedback')) {
+                input.parentNode.appendChild(errorDiv);
+              }
+              return;
+            }
+            if (maxValue !== null && numValue > parseFloat(maxValue)) {
+              input.classList.add('is-invalid');
+              const errorDiv = document.createElement('div');
+              errorDiv.className = 'invalid-feedback d-block';
+              errorDiv.textContent = `Value cannot exceed ${maxValue}`;
+              if (!input.parentNode.querySelector('.invalid-feedback')) {
+                input.parentNode.appendChild(errorDiv);
+              }
+              return;
+            }
+          }
+        }
+      }
+    });
+    
+    // Check if there are validation errors
+    const invalidFields = confirmDialog.querySelectorAll('.is-invalid');
+    if (invalidFields.length > 0) {
+      return;
+    }
+    
     confirmDialog.style.opacity = '0';
     setTimeout(() => {
       if (confirmDialog && confirmDialog.parentNode) {
         confirmDialog.remove();
       }
-      if (onConfirm) onConfirm(inputValue);
+      // Pass both primary input and additional inputs to onConfirm
+      if (onConfirm) {
+        if (Object.keys(additionalValues).length > 0) {
+          onConfirm({
+            deliveredQuantity: inputValue,
+            ...additionalValues
+          });
+        } else {
+          onConfirm(inputValue);
+        }
+      }
     }, 300);
   };
   

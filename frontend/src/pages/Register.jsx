@@ -138,10 +138,10 @@ export default function Register() {
     
     // Validate phone if provided
     if (formData.phone.trim() !== '') {
-      // Allow common phone formats
-      const phoneRegex = /^(09\d{2}[-\s]?\d{3}[-\s]?\d{4}|\+639\d{9})$/;
+      // Validate Philippine mobile number format (must start with 09 and be 11 digits)
+      const phoneRegex = /^09\d{9}$/;
       if (!phoneRegex.test(formData.phone.trim())) {
-        setError('Invalid phone number format. Use 09xx xxx xxxx or +639xxxxxxxxx');
+        setError('Invalid phone number format. Must start with 09 and be exactly 11 digits');
         return false;
       }
     }
@@ -348,10 +348,27 @@ export default function Register() {
             className="form-control"
             placeholder="0917-000-0000"
             value={formData.phone}
-            onChange={(e) => setFormData({...formData, phone: e.target.value})}
+            onChange={(e) => {
+              // Remove any non-digit characters
+              let value = e.target.value.replace(/\D/g, '');
+              // Ensure it starts with 09
+              if (value.length > 0 && !value.startsWith('09')) {
+                if (value.startsWith('9')) {
+                  value = '0' + value;
+                } else {
+                  value = '09' + value.substring(0, 9);
+                }
+              }
+              // Limit to 11 digits
+              if (value.length > 11) {
+                value = value.substring(0, 11);
+              }
+              setFormData({...formData, phone: value});
+            }}
+            maxLength="11"
           />
           <div className="form-text small text-muted">
-            Optional. Format: 09xx xxx xxxx or +639xxxxxxxxx
+            Optional. Must start with 09 and be exactly 11 digits
           </div>
         </div>
 

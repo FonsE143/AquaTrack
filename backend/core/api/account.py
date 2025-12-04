@@ -87,11 +87,11 @@ class RegisterView(APIView):
         
         # Validate phone if provided
         if phone:
-            # Allow common phone formats
-            phone_regex = r'^(09\d{2}[-\s]?\d{3}[-\s]?\d{4}|\+639\d{9})$'
+            # Validate Philippine mobile number format (must start with 09 and be 11 digits)
+            phone_regex = r'^09\d{9}$'
             if not re.match(phone_regex, phone):
                 return Response(
-                    {'error': 'Invalid phone number format. Use 09xx xxx xxxx or +639xxxxxxxxx'}, 
+                    {'error': 'Invalid phone number format. Must start with 09 and be exactly 11 digits'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
